@@ -10,10 +10,18 @@ on:
 permissions:
   contents: write
 
+# 同一分支的多次推送串行执行，避免并发抢同一个版本标签导致 Release 创建失败
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # 禁用 MSBuild 节点复用：常驻节点会在步骤结束后仍持有输出句柄，导致 Job 无法结束
+  # （Roslyn 编译器服务保留以加快编译，收尾步骤会统一关闭）
+  MSBUILDDISABLENODEREUSE: 1
   PROJECT_PATH: 通用模拟器/通用模拟器.csproj
   # 版本号规则（与 csproj 一致）：主版本.次版本.天数.秒数/2
   PUBLISH_DIR: publish
@@ -24,6 +32,7 @@ jobs:
   release:
     name: 构建并发布
     runs-on: windows-latest   # WPF（net10.0-windows）只能在 Windows 上编译；镜像自带 NSIS
+    timeout-minutes: 30       # 兜底：任何步骤卡死也不会无限占用 runner
 
     steps:
       - name: 检出代码
@@ -34,6 +43,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: 缓存 NuGet 包
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
       - name: 还原依赖
         shell: pwsh
         run: dotnet restore "$env:PROJECT_PATH"
@@ -41,8 +57,8 @@ jobs:
       - name: 编译并发布
         shell: pwsh
         # 若希望安装包自带运行时（无需用户安装 .NET 10），改为：
-        # dotnet publish "$env:PROJECT_PATH" -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:DebugType=none -o "$env:PUBLISH_DIR"
-        run: dotnet publish "$env:PROJECT_PATH" -c Release -o "$env:PUBLISH_DIR" /p:DebugType=none
+        # dotnet publish "$env:PROJECT_PATH" -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:DebugType=none --no-restore -o "$env:PUBLISH_DIR"
+        run: dotnet publish "$env:PROJECT_PATH" -c Release --no-restore -o "$env:PUBLISH_DIR" /p:DebugType=none
 
       - name: 读取版本号
         id: ver
@@ -72,11 +88,21 @@ jobs:
           if (-not (Test-Path $makensis)) { throw "未找到 makensis（NSIS）" }
           Write-Host "makensis：$makensis"
 
-          # 许可协议文件（存在时安装包会显示许可页面）
+          # 许可协议文件（存在时安装包才显示许可页面）
           $license = ""
-          if (Test-Path "$root\通用模拟器\LICENSE") {
+          $srcLicense = Join-Path $root "LICENSE"
+          if (Test-Path $srcLicense) {
             $license = Join-Path $root "installer\LICENSE.txt"
-            Copy-Item "$root\通用模拟器\LICENSE" $license -Force
+            Copy-Item $srcLicense $license -Force
+          } else {
+            Write-Host "::warning::未找到 LICENSE，安装向导将跳过许可页面"
+          }
+
+          # 应用图标（缺失时回退到 NSIS 默认图标，不中断构建）
+          $icon = Join-Path $root '通用模拟器\Assets\app.ico'
+          if (-not (Test-Path $icon)) {
+            Write-Host "::warning::未找到图标 $icon，使用 NSIS 默认图标"
+            $icon = ""
           }
 
           # 路径含空格时才加引号，避免 makensis 对引号的处理差异
@@ -86,10 +112,10 @@ jobs:
           $nsisArgs = @(
             "/DAPP_VERSION=$env:VERSION"
             "/DPUBLISH_DIR=$(Nsis-Path (Join-Path $root $env:PUBLISH_DIR))"
-            "/DICON_FILE=$(Nsis-Path (Join-Path $root '通用模拟器\Assets\app.ico'))"
             "/DOUTFILE=$(Nsis-Path $outFile)"
           )
           if ($license) { $nsisArgs += "/DLICENSE_FILE=$(Nsis-Path $license)" }
+          if ($icon)    { $nsisArgs += "/DICON_FILE=$(Nsis-Path $icon)" }
           $nsisArgs += "$env:NSI_PATH"
 
           & $makensis $nsisArgs
@@ -110,6 +136,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAGER: cat                       # 避免 gh 意外进入分页器而卡住
           VERSION: ${{ steps.ver.outputs.version }}
           SETUP: ${{ steps.setup.outputs.setup }}
         run: |
@@ -121,3 +148,10 @@ jobs:
             --title "$env:APP_NAME v$env:VERSION" `
             --generate-notes `
             --target $env:GITHUB_SHA
+
+      - name: 关闭编译常驻进程
+        if: always()                          # 防止残留进程持有输出句柄导致 Job 不结束
+        shell: pwsh
+        run: |
+          dotnet build-server shutdown
+          Get-Process -Name MSBuild,VBCSCompiler -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

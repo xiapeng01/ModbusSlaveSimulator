@@ -209,13 +209,19 @@ namespace 通用模拟器
         } 
 
         const string fileName = "Setting.json";
-        // 用程序目录而非当前工作目录，避免工作目录变化导致配置找不到/写不进去
-        static string SettingPath => Path.Combine(AppContext.BaseDirectory, fileName);
+        // 配置放在 %LOCALAPPDATA%\Modbus从站模拟器 下：
+        // 安装到 C:\Program Files 后程序目录不可写，普通权限下会静默丢失配置
+        static readonly string AppDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Modbus从站模拟器");
+        static string SettingPath => Path.Combine(AppDataDir, fileName);
+        // 旧版本（安装在哪就存哪）的遗留位置，仅用于首次迁移
+        static string LegacySettingPath => Path.Combine(AppContext.BaseDirectory, fileName);
 
         public void SaveSetting()
         {
             try
             {
+                Directory.CreateDirectory(AppDataDir);
                 File.WriteAllText(SettingPath, JsonConvert.SerializeObject(NetworkList));
             }
             catch (Exception ex)
@@ -228,6 +234,13 @@ namespace 通用模拟器
         {
             try
             {
+                // 旧配置迁移：程序目录里有、%LOCALAPPDATA% 里没有时，复制一份过来
+                if (!File.Exists(SettingPath) && File.Exists(LegacySettingPath))
+                {
+                    Directory.CreateDirectory(AppDataDir);
+                    File.Copy(LegacySettingPath, SettingPath, overwrite: true);
+                }
+
                 if (!File.Exists(SettingPath)) return;
                 var js = File.ReadAllText(SettingPath);
                 var list = JsonConvert.DeserializeObject<BindingList<NetworkConfigModel>>(js);

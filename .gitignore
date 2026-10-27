@@ -365,3 +365,19 @@ FodyWeavers.xsd
 # NSIS 安装包生成物
 installer/LICENSE.txt
 *-Setup.exe
+
+# 编辑器 / 系统杂项
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试结果
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+
+# 应用运行时生成的配置（现已写入 %LOCALAPPDATA%，此处仅作兜底）
+Setting.json

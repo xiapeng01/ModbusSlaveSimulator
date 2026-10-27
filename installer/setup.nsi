@@ -5,7 +5,9 @@
 ;    /DAPP_VERSION=1.0.9800.12345      安装包版本号（与程序集版本一致）
 ;    /DPUBLISH_DIR=<dotnet publish 输出目录>
 ;    /DOUTFILE=<安装包输出路径>
-;    /DICON_FILE=<图标 .ico 路径>
+;    /DICON_FILE=<图标 .ico 路径>      可选，缺省用 NSIS 默认图标
+;    /DLICENSE_FILE=<许可协议 .txt>    可选，缺省不显示许可页面
+; 升级安装时会自动备份并还原用户配置 Setting.json
 ;==============================================================================
 
 Unicode true
@@ -20,9 +22,7 @@ Unicode true
 !ifndef OUTFILE
     !define OUTFILE "..\Modbus从站模拟器-Setup.exe"
 !endif
-!ifndef ICON_FILE
-    !define ICON_FILE "..\通用模拟器\Assets\app.ico"
-!endif
+
 
 ;---------- 基本信息 ----------
 !define APP_NAME        "Modbus从站模拟器"
@@ -54,8 +54,10 @@ VIAddVersionKey   "LegalCopyright"  "Copyright (c) ${APP_NAME}"
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 
-!define MUI_ICON   "${ICON_FILE}"
-!define MUI_UNICON "${ICON_FILE}"
+!ifdef ICON_FILE
+    !define MUI_ICON   "${ICON_FILE}"
+    !define MUI_UNICON "${ICON_FILE}"
+!endif
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN            "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT       "运行 ${APP_NAME}"
@@ -77,6 +79,7 @@ VIAddVersionKey   "LegalCopyright"  "Copyright (c) ${APP_NAME}"
 ; 安装前：检测旧版本 -> 静默卸载后升级（保留原安装目录）
 ;==============================================================================
 Function .onInit
+    SetRegView 64                                   ; 与 64 位安装目录对应，卸载信息写入 64 位注册表视图
     ReadRegStr $0 HKLM "${UNINST_KEY}" "InstallLocation"
     ReadRegStr $1 HKLM "${UNINST_KEY}" "DisplayVersion"
 
@@ -88,6 +91,10 @@ Function .onInit
     IfSilent +3                                     ; 静默模式下不弹窗，直接升级
     MessageBox MB_YESNO|MB_ICONQUESTION "检测到已安装的 ${APP_NAME} $1。$\r$\n是否升级到 ${APP_VERSION}？" IDYES +2 IDNO +1
     Abort
+
+    ; 升级前备份旧配置（旧版本存在程序目录），装完由程序迁移到 %LOCALAPPDATA%
+    IfFileExists "$0\Setting.json" 0 +2
+    CopyFiles "$0\Setting.json" "$TEMP\${APP_NAME}-Setting.json"
 
     DetailPrint "正在移除旧版本 $1 ..."
     ExecWait '"$0\uninst.exe" /S _?=$0' $2
@@ -108,6 +115,12 @@ Section "主程序" SEC_MAIN
 
     ; 发布产物（排除调试符号文件）
     File /r /x "*.pdb" "${PUBLISH_DIR}\*.*"
+
+    ; 还原升级前备份的旧配置（新版配置在 %LOCALAPPDATA%，程序首次启动会自行迁移）
+    IfFileExists "$INSTDIR\Setting.json" +3 0
+    IfFileExists "$TEMP\${APP_NAME}-Setting.json" 0 +2
+    CopyFiles "$TEMP\${APP_NAME}-Setting.json" "$INSTDIR\Setting.json"
+    Delete "$TEMP\${APP_NAME}-Setting.json"
 
     ; 卸载程序
     WriteUninstaller "$INSTDIR\uninst.exe"
@@ -138,6 +151,7 @@ SectionEnd
 ; 卸载前：安全校验（避免 $INSTDIR 异常时误删磁盘内容）
 ;==============================================================================
 Function un.onInit
+    SetRegView 64                                   ; 与安装时同一注册表视图，否则删不掉卸载项
     StrLen $0 "$INSTDIR"
     ${If} $0 < 4
         MessageBox MB_OK|MB_ICONSTOP "安装目录无效，卸载已终止。"
