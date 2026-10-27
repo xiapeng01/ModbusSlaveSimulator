@@ -7,6 +7,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         mc:Ignorable="d"
         Title="通用模拟器"
+        Icon="Assets/app.ico"
         Height="740" Width="1180" MinHeight="580" MinWidth="960"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"

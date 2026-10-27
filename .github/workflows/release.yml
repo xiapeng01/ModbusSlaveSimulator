@@ -1,6 +1,7 @@
 name: 自动构建并发布 Release
 
 # 每次推送到 main / master 自动构建，并用程序集版本号打标签创建 GitHub Release
+# 产物：NSIS 生成的安装包（版本号与应用程序集版本一致）
 on:
   push:
     branches: [ "main", "master" ]
@@ -16,11 +17,13 @@ env:
   PROJECT_PATH: 通用模拟器/通用模拟器.csproj
   # 版本号规则（与 csproj 一致）：主版本.次版本.天数.秒数/2
   PUBLISH_DIR: publish
+  NSI_PATH: installer/setup.nsi
+  APP_NAME: Modbus从站模拟器
 
 jobs:
   release:
     name: 构建并发布
-    runs-on: windows-latest   # WPF（net10.0-windows）只能在 Windows 上编译
+    runs-on: windows-latest   # WPF（net10.0-windows）只能在 Windows 上编译；镜像自带 NSIS
 
     steps:
       - name: 检出代码
@@ -37,33 +40,84 @@ jobs:
 
       - name: 编译并发布
         shell: pwsh
+        # 若希望安装包自带运行时（无需用户安装 .NET 10），改为：
+        # dotnet publish "$env:PROJECT_PATH" -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:DebugType=none -o "$env:PUBLISH_DIR"
         run: dotnet publish "$env:PROJECT_PATH" -c Release -o "$env:PUBLISH_DIR" /p:DebugType=none
 
-      - name: 读取版本号并打包
-        id: pack
+      - name: 读取版本号
+        id: ver
         shell: pwsh
         run: |
           $version = (Get-Item "$env:PUBLISH_DIR/通用模拟器.dll").VersionInfo.FileVersion
           if ([string]::IsNullOrWhiteSpace($version)) { throw "无法从产物中读取版本号" }
-          if (Test-Path README.md) { Copy-Item README.md "$env:PUBLISH_DIR" -Force }
-          $asset = "通用模拟器-v$version.zip"
-          Compress-Archive -Path "$env:PUBLISH_DIR/*" -DestinationPath $asset
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "asset=$asset"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "版本号：$version，产物：$asset"
+          Write-Host "版本号：$version"
 
-      - name: 创建 GitHub Release 并上传产物
+      - name: 生成 NSIS 安装包
+        id: setup
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          $root = (Get-Location).Path
+
+          # 定位 makensis（Windows 镜像通常自带 NSIS，缺失时用 choco 兜底安装）
+          $makensis = Join-Path ${env:ProgramFiles(x86)} "NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { $makensis = (Get-Command makensis -ErrorAction SilentlyContinue).Source }
+          if (-not $makensis) {
+            Write-Host "未发现 NSIS，尝试通过 Chocolatey 安装..."
+            choco install nsis -y --no-progress
+            $makensis = Join-Path ${env:ProgramFiles(x86)} "NSIS\makensis.exe"
+          }
+          if (-not (Test-Path $makensis)) { throw "未找到 makensis（NSIS）" }
+          Write-Host "makensis：$makensis"
+
+          # 许可协议文件（存在时安装包会显示许可页面）
+          $license = ""
+          if (Test-Path "$root\通用模拟器\LICENSE") {
+            $license = Join-Path $root "installer\LICENSE.txt"
+            Copy-Item "$root\通用模拟器\LICENSE" $license -Force
+          }
+
+          # 路径含空格时才加引号，避免 makensis 对引号的处理差异
+          function Nsis-Path([string]$p) { if ($p -match ' ') { return "`"$p`"" } return $p }
+
+          $outFile = Join-Path $root "$env:APP_NAME-v$env:VERSION-Setup.exe"
+          $nsisArgs = @(
+            "/DAPP_VERSION=$env:VERSION"
+            "/DPUBLISH_DIR=$(Nsis-Path (Join-Path $root $env:PUBLISH_DIR))"
+            "/DICON_FILE=$(Nsis-Path (Join-Path $root '通用模拟器\Assets\app.ico'))"
+            "/DOUTFILE=$(Nsis-Path $outFile)"
+          )
+          if ($license) { $nsisArgs += "/DLICENSE_FILE=$(Nsis-Path $license)" }
+          $nsisArgs += "$env:NSI_PATH"
+
+          & $makensis $nsisArgs
+          # makensis 对“警告”也可能返回非 0，真正失败时不会生成安装包，以下面这条为准
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::makensis 退出码 $LASTEXITCODE（可能是警告）" }
+          if (-not (Test-Path $outFile)) { throw "安装包生成失败，未找到产物：$outFile" }
+
+          "setup=$outFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "安装包：$((Get-Item $outFile).Length / 1MB) MB"
+
+      - name: 上传安装包构件
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-Setup-v${{ steps.ver.outputs.version }}
+          path: ${{ steps.setup.outputs.setup }}
+
+      - name: 创建 GitHub Release 并上传安装包
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.pack.outputs.version }}
-          ASSET: ${{ steps.pack.outputs.asset }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          SETUP: ${{ steps.setup.outputs.setup }}
         run: |
           $tag = "v$env:VERSION"
           # 同一秒内的再次推送会导致标签冲突，此时追加运行号保证唯一
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) { $tag = "$tag.$env:GITHUB_RUN_NUMBER" }
-          gh release create $tag $env:ASSET `
-            --title "通用模拟器 v$env:VERSION" `
+          gh release create $tag $env:SETUP `
+            --title "$env:APP_NAME v$env:VERSION" `
             --generate-notes `
             --target $env:GITHUB_SHA

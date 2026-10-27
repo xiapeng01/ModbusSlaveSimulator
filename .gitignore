@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# NSIS 安装包生成物
+installer/LICENSE.txt
+*-Setup.exe
