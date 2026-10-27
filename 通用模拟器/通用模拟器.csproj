@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <!-- 版本号规则：主版本.次版本.<基准日以来的天数>.<当日 0 点起的秒数 / 2> -->
+  <PropertyGroup>
+    <VersionMajor>1</VersionMajor>
+    <VersionMinor>0</VersionMinor>
+    <VersionEpoch>2000-01-01</VersionEpoch>
+    <Version>$(VersionMajor).$(VersionMinor).0.0</Version>
+  </PropertyGroup>
+
+  <Target Name="ComputeVersion" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <!-- 第三段：基准日以来的天数 -->
+      <_Days>$([System.DateTime]::Now.Subtract($([System.DateTime]::Parse('$(VersionEpoch)'))).Days)</_Days>
+      <!-- 第四段：当日 0 点起的秒数 / 2（除以 2 是 .NET 程序集版本段的 16 位上限要求：86400/2=43200 < 65535） -->
+      <_Seconds>$([System.DateTime]::Now.TimeOfDay.TotalSeconds)</_Seconds>
+      <_Revision>$([System.Convert]::ToInt32($([System.Math]::Floor($([MSBuild]::Divide($(_Seconds), 2))))))</_Revision>
+      <Version>$(VersionMajor).$(VersionMinor).$(_Days).$(_Revision)</Version>
+      <AssemblyVersion>$(Version)</AssemblyVersion>
+      <FileVersion>$(Version)</FileVersion>
+    </PropertyGroup>
+    <Message Importance="high" Text="版本：$(Version)（自 $(VersionEpoch) 起 $(_Days) 天，当日 $(_Seconds) 秒 / 2）" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="NModbus.Extensions" Version="0.2.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,69 @@
+name: 自动构建并发布 Release
+
+# 每次推送到 main / master 自动构建，并用程序集版本号打标签创建 GitHub Release
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  PROJECT_PATH: 通用模拟器/通用模拟器.csproj
+  # 版本号规则（与 csproj 一致）：主版本.次版本.天数.秒数/2
+  PUBLISH_DIR: publish
+
+jobs:
+  release:
+    name: 构建并发布
+    runs-on: windows-latest   # WPF（net10.0-windows）只能在 Windows 上编译
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: 还原依赖
+        shell: pwsh
+        run: dotnet restore "$env:PROJECT_PATH"
+
+      - name: 编译并发布
+        shell: pwsh
+        run: dotnet publish "$env:PROJECT_PATH" -c Release -o "$env:PUBLISH_DIR" /p:DebugType=none
+
+      - name: 读取版本号并打包
+        id: pack
+        shell: pwsh
+        run: |
+          $version = (Get-Item "$env:PUBLISH_DIR/通用模拟器.dll").VersionInfo.FileVersion
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "无法从产物中读取版本号" }
+          if (Test-Path README.md) { Copy-Item README.md "$env:PUBLISH_DIR" -Force }
+          $asset = "通用模拟器-v$version.zip"
+          Compress-Archive -Path "$env:PUBLISH_DIR/*" -DestinationPath $asset
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "asset=$asset"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "版本号：$version，产物：$asset"
+
+      - name: 创建 GitHub Release 并上传产物
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.pack.outputs.version }}
+          ASSET: ${{ steps.pack.outputs.asset }}
+        run: |
+          $tag = "v$env:VERSION"
+          # 同一秒内的再次推送会导致标签冲突，此时追加运行号保证唯一
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { $tag = "$tag.$env:GITHUB_RUN_NUMBER" }
+          gh release create $tag $env:ASSET `
+            --title "通用模拟器 v$env:VERSION" `
+            --generate-notes `
+            --target $env:GITHUB_SHA
