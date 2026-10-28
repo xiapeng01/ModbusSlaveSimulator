@@ -38,7 +38,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="NModbus.Extensions" Version="0.2.0" />
+    <PackageReference Include="NModbus.Extensions" Version="0.2.1" />
   </ItemGroup>
 
   <ItemGroup>

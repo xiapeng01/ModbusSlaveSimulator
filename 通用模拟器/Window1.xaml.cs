@@ -137,8 +137,8 @@ namespace 通用模拟器
                         MessageBox.Show("字符串内容不能为空。", "提示");
                         return;
                     }
-                    if (rbReadOnly.IsChecked is true) station?.Slave?.WriteStringR(station.StationNo, adr, str);
-                    if (rbReadWrite.IsChecked is true) station?.Slave?.WriteStringRW(station.StationNo, adr, str);
+                    if (rbReadOnly.IsChecked is true) station?.Slave?.WriteStringR(adr, str);
+                    if (rbReadWrite.IsChecked is true) station?.Slave?.WriteStringRW(adr, str);
                 }
                 MessageBox.Show("成功");
             }

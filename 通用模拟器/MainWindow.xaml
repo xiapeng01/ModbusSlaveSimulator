@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:通用模拟器"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        mc:Ignorable="d"
+        mc:Ignorable="d" xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Title="通用模拟器"
         Icon="Assets/app.ico"
         Height="740" Width="1180" MinHeight="580" MinWidth="960"
@@ -53,6 +53,10 @@
                             <TextBlock Text="Modbus 从站" FontSize="11"
                                        Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold"/>
                         </Border>
+                        <Border Width="1" Height="14" Background="{StaticResource BorderBrush}"
+                                Margin="12,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Mica Apps" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
@@ -262,8 +266,11 @@
 
                                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="IP 地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
                                                                Visibility="{Binding IsTcpMode, Converter={StaticResource BoolToVisibility}}"/>
-                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding IP, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
-                                                             Visibility="{Binding IsTcpMode, Converter={StaticResource BoolToVisibility}}"/>
+                                                    <ComboBox Grid.Row="1" Grid.Column="1" SelectedValue="{Binding IP, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                             Visibility="{Binding IsTcpMode, Converter={StaticResource BoolToVisibility}}">
+                                                        <sys:String>0.0.0.0</sys:String>
+                                                        <sys:String>127.0.0.1</sys:String>
+                                                    </ComboBox>
                                                     <TextBlock Grid.Row="1" Grid.Column="3" Text="端口" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
                                                                Visibility="{Binding IsTcpMode, Converter={StaticResource BoolToVisibility}}"/>
                                                     <TextBox Grid.Row="1" Grid.Column="4" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
@@ -356,8 +363,7 @@
                                                                                 <ColumnDefinition Width="Auto"/>
                                                                             </Grid.ColumnDefinitions>
                                                                             <CheckBox IsChecked="{Binding IsEnable}" VerticalAlignment="Center"/>
-                                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="9,0,0,0"
-                                                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                            <TextBlock Grid.Column="1" Text="{Binding DisplayName, Mode=OneWay}" Margin="9,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                                             <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="6"
                                                                                     Padding="6,1" Background="{StaticResource SurfaceBrush}">
                                                                                 <TextBlock Text="{Binding Tick}" FontSize="11"
@@ -399,8 +405,9 @@
                                                             </Border.Style>
                                                         </Border>
 
-                                                        <ContentControl Content="{Binding ElementName=lvStation,Path=SelectedValue}"
-                                                                        IsEnabled="{Binding CanEdit}">
+                                                        <!-- 注意：这里不再整体禁用，否则运行期无法选中规则查看；
+                                                             改为分别锁定「站点信息」Grid、规则增删按钮与规则属性面板 -->
+                                                        <ContentControl Content="{Binding ElementName=lvStation,Path=SelectedValue}">
                                                             <ContentControl.Style>
                                                                 <Style TargetType="ContentControl">
                                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -414,8 +421,8 @@
                                                             <ContentControl.ContentTemplate>
                                                                 <DataTemplate d:DataType="local:StationInformationModel">
                                                                     <StackPanel>
-                                                                        <!-- ===== 站点信息 ===== -->
-                                                                        <Grid>
+                                                                        <!-- ===== 站点信息（运行期锁定） ===== -->
+                                                                        <Grid IsEnabled="{Binding CanEdit}">
                                                                             <Grid.ColumnDefinitions>
                                                                                 <ColumnDefinition Width="72"/>
                                                                                 <ColumnDefinition Width="*"/>
@@ -474,9 +481,9 @@
                                                                                     </StackPanel>
                                                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                                                         <Button Style="{StaticResource IconButton}" Content="+" ToolTip="新增规则"
-                                                                                                Command="{Binding AddRulerCommand}"/>
+                                                                                                Command="{Binding AddRulerCommand}" IsEnabled="{Binding CanEdit}"/>
                                                                                         <Button Style="{StaticResource IconButtonDanger}" Content="−" ToolTip="删除规则" Margin="4,0,0,0"
-                                                                                                Command="{Binding RemoverRulerCommand}"
+                                                                                                Command="{Binding RemoverRulerCommand}" IsEnabled="{Binding CanEdit}"
                                                                                                 CommandParameter="{Binding ElementName=lvRuler, Path=SelectedItem}"/>
                                                                                     </StackPanel>
                                                                                 </Grid>
@@ -561,7 +568,9 @@
                                                                                             </Border.Style>
                                                                                         </Border>
 
-                                                                                        <ContentControl Content="{Binding ElementName=lvRuler, Path=SelectedValue}">
+                                                                                        <!-- 规则属性面板：运行期锁定（列表仍可选中查看，只是不能改） -->
+                                                                                        <ContentControl Content="{Binding ElementName=lvRuler, Path=SelectedValue}"
+                                                                                                        IsEnabled="{Binding CanEdit}">
                                                                                             <ContentControl.Style>
                                                                                                 <Style TargetType="ContentControl">
                                                                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -588,6 +597,7 @@
                                                                                                             <RowDefinition Height="Auto"/>
                                                                                                             <RowDefinition Height="Auto"/>
                                                                                                             <RowDefinition Height="Auto"/>
+                                                                                                            <RowDefinition Height="Auto"/>
                                                                                                         </Grid.RowDefinitions>
 
                                                                                                         <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" Style="{StaticResource FormLabel}"/>
@@ -599,15 +609,33 @@
                                                                                                         <ComboBox Grid.Row="2" Grid.Column="1" SelectedValue="{Binding DataType}" ItemsSource="{Binding DataTypeValues}" Margin="0,10,0,0"/>
 
                                                                                                         <TextBlock Grid.Row="3" Grid.Column="0" Text="起始地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+                                                                                                        <UniformGrid Rows="1" Grid.Row="3" Grid.Column="1"  Margin="0,10,0,0">
+                                                                                                            <DockPanel>
+                                                                                                                <TextBlock Text="(D)" VerticalAlignment="Center"/>
+                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                            </DockPanel>
+                                                                                                            <DockPanel>
+                                                                                                                <TextBlock Text="(H)" VerticalAlignment="Center"/>
+                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
+                                                                                                            </DockPanel>
+                                                                                                        </UniformGrid>
+                                                                                                        
                                                                                                         <TextBlock Grid.Row="4" Grid.Column="0" Text="数量" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
                                                                                                         <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
 
-                                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+                                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Scale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                 ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"/>
 
-                                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="写入次数" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Tick}" IsReadOnly="True" Margin="0,10,0,0"/>
+                                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="偏置" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Offset, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                 ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"/>
+
+                                                                                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+
+                                                                                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="写入次数" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Tick}" IsReadOnly="True" Margin="0,10,0,0"/>
                                                                                                     </Grid>
                                                                                                 </DataTemplate>
                                                                                             </ContentControl.ContentTemplate>
@@ -700,6 +728,8 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CurrentTimeText}" FontSize="12" VerticalAlignment="Center" Margin="0,0,16,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}" ToolTip="当前时间"/>
                         <Button Style="{StaticResource SuccessButton}" Content="启 动" Width="120" Height="38"
                                 Command="{Binding StartCommand}" IsEnabled="{Binding IsStopped}"/>
                         <Button Style="{StaticResource DangerButton}" Content="停 止" Width="120" Height="38" Margin="10,0,0,0"

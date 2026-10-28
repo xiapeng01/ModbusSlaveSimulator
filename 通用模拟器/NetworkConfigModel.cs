@@ -209,8 +209,8 @@ namespace 通用模拟器
             {
                 network = ProtocolType switch
                 {
-                    EnumProtocolType.ModbusRtu => Tools.CreateRtuSlaveNetwork(PortName),
-                    EnumProtocolType.ModbusTcp => Tools.CreateTcpSlaveNetwork(Port),
+                    EnumProtocolType.ModbusRtu => Tools.CreateRtuSlaveNetwork(PortName,BaudRate,DataBits,Parity,StopBits),
+                    EnumProtocolType.ModbusTcp => Tools.CreateTcpSlaveNetwork(IP, Port),
                     EnumProtocolType.ModbusRtuOverTcp => Tools.CreateRtuOverTcpSlaveNetwork(Port),
                     _ => throw new NotSupportedException($"Protocol type {ProtocolType} is not supported.")
                 };
@@ -249,6 +249,8 @@ namespace 通用模拟器
                         await Task.Delay(Interval, token);
                         if (!IsEnable) continue;
                         CanEdit = false;
+                        // 一并锁定所有站点（含未启用的），否则运行期仍可改站点 / 规则配置
+                        foreach (var s in StationList.ToArray()) s.CanEdit = false;
 
                         var network = GetOrCreateNetwork();
                         if (network is null) continue;
@@ -336,10 +338,18 @@ namespace 通用模拟器
 
         public EnumEndian[] EndialValues => Enum.GetValues<EnumEndian>();
         [ObservableProperty] bool isEnable = true;
-        [ObservableProperty] string name = "未命名";
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        string name = "未命名";
         [ObservableProperty] string description = "";
 
-        [ObservableProperty] int stationNo = 1;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DisplayName))]
+        int stationNo = 1;
+
+        /// <summary>列表显示文本：站号 + (名称)</summary>
+        [JsonIgnore]
+        public string DisplayName => $"{StationNo} ({Name})";
         [ObservableProperty] BindingList<RulerModel> rulerList = new();
         [property: JsonIgnore][ObservableProperty] int tick = 0;
         [ObservableProperty] int interval = 5;
@@ -414,6 +424,8 @@ namespace 通用模拟器
         [ObservableProperty] EnumDataType dataType = EnumDataType.UInt16;
         [ObservableProperty] int startAddress = 0;
         [ObservableProperty] int length = 1;
+        [ObservableProperty] double scale = 1.0;//缩放
+        [ObservableProperty] double offset = 0;//偏置
         [property: JsonIgnore][ObservableProperty] int tick = 0;
         Random random = new Random(Guid.NewGuid().GetHashCode());
 
@@ -447,15 +459,15 @@ namespace 通用模拟器
             {
                 var text = new string(Enumerable.Range(0, len)
                     .Select(_ => (char)random.Next('A', 'Z' + 1)).ToArray());
-                if (readOnly) slave.WriteStringR(stationNo, addr, text);
-                else slave.WriteStringRW(stationNo, addr, text);
+                if (readOnly) slave.WriteStringR(addr, text);
+                else slave.WriteStringRW(addr, text);
                 return;
             }
 
             double[] data = new double[len];
             for (int i = 0; i < len; i++)
             {
-                data[i] = random.NextDouble() * 100;
+                data[i] = random.NextDouble() * Scale + Offset;
             }
 
             if (readOnly)

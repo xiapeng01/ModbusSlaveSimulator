@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
+using System.Windows.Threading;
 
 namespace 通用模拟器
 {
@@ -16,6 +17,8 @@ namespace 通用模拟器
     {
         [ObservableProperty] BindingList<NetworkConfigModel> networkList = new();
         [ObservableProperty] NetworkConfigModel? selectedNetwork;
+        /// <summary>状态栏显示的当前时间，由 DispatcherTimer 每秒刷新</summary>
+        [ObservableProperty] string currentTimeText = DateTime.Now.ToString(TimeFormat);
         public bool IsRunning => cts is not null;
         public bool IsStopped => cts is null;
 
@@ -110,8 +113,12 @@ namespace 通用模拟器
         CancellationTokenSource? cts;
         readonly List<Task> tasks = new();
 
+        const string TimeFormat = "yyyy-MM-dd HH:mm:ss";
+        readonly DispatcherTimer clockTimer;
+
         public void Dispose()
         {
+            clockTimer.Stop();
             var source = cts;
             cts = null;
             if (source is null) return;
@@ -127,6 +134,11 @@ namespace 通用模拟器
             LoadSetting();//加载配置
             // BindingList 增删项不会触发 Count 相关绑定刷新，这里手动通知
             NetworkList.ListChanged += (_, __) => OnPropertyChanged(nameof(NetworkList));
+
+            // 状态栏时钟：每秒刷新（DispatcherTimer 在 UI 线程触发，可直接改绑定源）
+            clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            clockTimer.Tick += (_, __) => CurrentTimeText = DateTime.Now.ToString(TimeFormat);
+            clockTimer.Start();
         }
 
         [RelayCommand]
@@ -147,6 +159,10 @@ namespace 通用模拟器
             tasks.Clear();
             foreach (var item in NetworkList)
             {
+                // 启动即锁定配置（DoWork 里也会再置一次，这里是为了让 UI 立刻变灰）
+                item.CanEdit = false;
+                foreach (var station in item.StationList.ToArray()) station.CanEdit = false;
+
                 tasks.Add(Task.Run(() => item?.DoWork(token)));
             }
             OnPropertyChanged(nameof(IsRunning));

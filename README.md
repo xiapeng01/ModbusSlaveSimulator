@@ -3,10 +3,15 @@
 基于 WPF 的 **Modbus 从站（Slave）模拟器**：用「网络 → 站点 → 数据规则」三层结构描述一台或多台设备，按设定周期自动向寄存器写入随机数据，供上位机 / 主站（Master）连接调试；也提供手动写入窗口，用于精确写入指定地址。
 
 - 支持 `ModbusRtu`（串口）、`ModbusTcp`（TCP 服务端）、`ModbusRtuOverTcp`（串口服务器透传）三种链路，可多网络并行
+- 站点列表以 `站号 (名称)` 显示（如 `1 (站点1)`），改站号或名称时即时刷新
 - 配置自动保存到 `%LOCALAPPDATA%\Modbus从站模拟器\Setting.json`，支持导入 / 导出
 - 无真实 PLC / 仪表时，用它冒充从站，验证主站的采集逻辑、字节序与地址映射
 
 详细的功能说明、数据模型、运行机制见 **[docs/通用模拟器.md](docs/通用模拟器.md)**。
+
+![主界面](docs/images/main-window.png)
+
+> 界面布局：标题栏左侧为应用名 / `Modbus 从站` 徽章 / 组织名 `Mica Apps`；左侧网络列表（可导入 / 导出参数），右侧上半为网络配置，下半为站点列表与数据规则（站点列表项形如 `1 (1进)`）；底部右侧显示实时日期时间与启动 / 停止按钮。
 
 ---
 
@@ -59,6 +64,7 @@ makensis /DAPP_VERSION=1.0.0.0 /DPUBLISH_DIR="$PWD\publish" /DOUTFILE="$PWD\Setu
 README.md                      本文件（下载安装 / 构建 / 发布）
 LICENSE                        MIT 许可证
 docs/通用模拟器.md               详细文档（功能、数据模型、运行机制）
+docs/images/main-window.png    主界面截图（README / 文档引用）
 installer/setup.nsi            NSIS 安装脚本（中文界面、桌面快捷方式、支持升级）
 .github/workflows/release.yml  推送即构建并发 Release
 通用模拟器.slnx
