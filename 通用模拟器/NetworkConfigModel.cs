@@ -424,7 +424,7 @@ namespace 通用模拟器
         [ObservableProperty] EnumDataType dataType = EnumDataType.UInt16;
         [ObservableProperty] int startAddress = 0;
         [ObservableProperty] int length = 1;
-        [ObservableProperty] double scale = 1.0;//缩放
+        [ObservableProperty] double scale = 100.0;//缩放
         [ObservableProperty] double offset = 0;//偏置
         [property: JsonIgnore][ObservableProperty] int tick = 0;
         Random random = new Random(Guid.NewGuid().GetHashCode());

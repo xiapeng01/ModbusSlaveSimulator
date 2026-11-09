@@ -39,7 +39,7 @@ namespace 通用模拟器
             SelectedNetwork = model;  // 新增后自动选中，右侧直接可编辑
         }
 
-        const string ConfigFilter = "参数文件 (*.json)|*.json|所有文件 (*.*)|*.*";
+        const string ConfigFilter = "参数文件 (*.lsts)|*.lsts|所有文件 (*.*)|*.*";
 
         /// <summary>导入参数：读取文件并反序列化，替换整个 NetworkList（仅停止状态可用）</summary>
         [RelayCommand(CanExecute = nameof(IsStopped))]
@@ -49,7 +49,7 @@ namespace 通用模拟器
             {
                 Title = "导入参数",
                 Filter = ConfigFilter,
-                DefaultExt = ".json",
+                DefaultExt = ".lsts",
                 CheckFileExists = true
             };
             if (dlg.ShowDialog() != true) return;
@@ -83,7 +83,7 @@ namespace 通用模拟器
             {
                 Title = "导出参数",
                 Filter = ConfigFilter,
-                DefaultExt = ".json",
+                DefaultExt = ".lsts",
                 FileName = fileName,
                 OverwritePrompt = true
             };

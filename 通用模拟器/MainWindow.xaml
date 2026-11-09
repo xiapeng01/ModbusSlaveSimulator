@@ -118,7 +118,7 @@
 
                         <Grid Grid.Row="1">
                             <ListView x:Name="lvNetwork" ItemsSource="{Binding NetworkList}" Margin="8"
-                                      SelectedItem="{Binding SelectedNetwork, Mode=TwoWay}">
+                                      SelectedItem="{Binding SelectedNetwork, Mode=TwoWay}" SelectedIndex="0">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
                                         <Grid>
@@ -353,7 +353,7 @@
                                                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                                                         <Grid>
                                                             <ListView x:Name="lvStation" ItemsSource="{Binding StationList}" MouseDoubleClick="lvStation_MouseDoubleClick"
-                                                                      SelectedItem="{Binding SelectedStation, Mode=TwoWay}">
+                                                                      SelectedItem="{Binding SelectedStation, Mode=TwoWay}" SelectedIndex="0">
                                                                 <ListView.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <Grid>
@@ -499,7 +499,7 @@
                                                                                             BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                                                                                         <Grid>
                                                                                             <ListView x:Name="lvRuler" ItemsSource="{Binding RulerList}"
-                                                                                                      SelectedItem="{Binding SelectedRuler, Mode=TwoWay}">
+                                                                                                      SelectedItem="{Binding SelectedRuler, Mode=TwoWay}" SelectedIndex="0">
                                                                                                 <ListView.ItemTemplate>
                                                                                                     <DataTemplate>
                                                                                                         <Grid>
