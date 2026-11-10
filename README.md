@@ -2,7 +2,7 @@
 
 基于 WPF 的 **Modbus 从站（Slave）模拟器**：用「网络 → 站点 → 数据规则」三层结构描述一台或多台设备，按设定周期自动向寄存器写入随机数据，供上位机 / 主站（Master）连接调试；也提供手动写入窗口，用于精确写入指定地址。
 
-- 支持 `ModbusRtu`（串口）、`ModbusTcp`（TCP 服务端）、`ModbusRtuOverTcp`（串口服务器透传）三种链路，可多网络并行
+- 支持 `ModbusRtu`（串口）、`ModbusTcp`（TCP 服务端）、`ModbusRtuOverTcp`（RTU over TCP 监听，主站工具直连）三种链路，可多网络并行
 - 站点列表以 `站号 (名称)` 显示（如 `1 (站点1)`），改站号或名称时即时刷新
 - 配置自动保存到 `%LOCALAPPDATA%\Modbus从站模拟器\Setting.json`，支持导入 / 导出
 - 无真实 PLC / 仪表时，用它冒充从站，验证主站的采集逻辑、字节序与地址映射
