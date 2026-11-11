@@ -31,7 +31,7 @@ namespace 通用模拟器
         ModbusTcp,
         // 值 2 曾为同名的旧"外连模式"（TCP 客户端连 127.0.0.1，对接透传网关），已废弃；
         // 保留编号防止旧配置文件里的 2 被顶替而静默变行为
-        /// <summary>RTU over TCP（监听模式）：本机端口监听，主站工具连入后线上跑 RTU 帧（NModbus 未内置，用 RtuOverTcpListenerSlaveNetwork 补齐）</summary>
+        /// <summary>RTU over TCP（监听模式）：本机端口监听，主站工具连入后线上跑 RTU 帧（NModbus 未内置，用 RtuOverTcpSlaveNetwork 补齐）</summary>
         ModbusRtuOverTcp = 3
     }
 
@@ -214,8 +214,10 @@ namespace 通用模拟器
                 {
                     EnumProtocolType.ModbusRtu => Tools.CreateRtuSlaveNetwork(PortName,BaudRate,DataBits,Parity,StopBits),
                     EnumProtocolType.ModbusTcp => Tools.CreateTcpSlaveNetwork(IP, Port),
-                    // 监听式 RTU over TCP：IP 作为绑定地址（127.0.0.1 仅本机，0.0.0.0 暴露到局域网）
-                    EnumProtocolType.ModbusRtuOverTcp => new RtuOverTcpListenerSlaveNetwork(IP, Port),
+                    // 监听式 RTU over TCP：IP 作为绑定地址（127.0.0.1 仅本机，0.0.0.0 暴露到局域网）；
+                    // onError 保证监听意外终止时可见（sticky：不会被下一周期自动清除），提示用户重启网络
+                    EnumProtocolType.ModbusRtuOverTcp => new RtuOverTcpSlaveNetwork(IP, Port,
+                        ex => ReportError($"RTU over TCP 监听已异常终止：{ex.Message}", sticky: true)),
                     _ => throw new NotSupportedException($"Protocol type {ProtocolType} is not supported.")
                 };
             }
