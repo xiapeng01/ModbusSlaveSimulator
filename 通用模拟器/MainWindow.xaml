@@ -57,6 +57,15 @@
                                 Margin="12,0,10,0" VerticalAlignment="Center"/>
                         <TextBlock Text="Mica Apps" FontSize="11.5" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="{StaticResource BorderBrush}"
+                                Margin="12,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="参数名称" FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBox Width="300" Height="26" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="12" ToolTip="参数名称（仅停止状态可修改），导出时作为默认文件名"
+                                 Text="{Binding ConfigName, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsStopped}"
+                                 shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
@@ -95,25 +104,38 @@
                         </Grid.RowDefinitions>
 
                         <Border Grid.Row="0" Padding="16,12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
-                            <Grid>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Border Width="3" Height="16" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="网络列表" Style="{StaticResource SectionTitle}"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button Content="导入" ToolTip="从文件导入参数（仅停止状态可用）" Margin="0,0,4,0"
-                                            Command="{Binding ImportCommand}"
-                                            MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"/>
-                                    <Button Content="导出" ToolTip="将当前参数导出到文件" Margin="0,0,8,0"
-                                            Command="{Binding ExportCommand}"
-                                            MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"/>
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="3" Height="16" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
+                                        <TextBlock Text="网络列表" Style="{StaticResource SectionTitle}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="导入" ToolTip="从文件导入参数（仅停止状态可用）" Margin="0,0,4,0"
+                                                Command="{Binding ImportCommand}"
+                                                MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"/>
+                                        <Button Content="导出" ToolTip="将当前参数导出到文件"
+                                                Command="{Binding ExportCommand}"
+                                                MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                                     <Button Style="{StaticResource IconButton}" Content="+" ToolTip="新增网络"
                                             Command="{Binding AddNetworkCommand}"/>
                                     <Button Style="{StaticResource IconButtonDanger}" Content="−" ToolTip="删除网络" Margin="4,0,0,0"
                                             Command="{Binding RemoveNetworkCommand}"
                                             CommandParameter="{Binding ElementName=lvNetwork,Path=SelectedItem}"/>
+                                    <Border Width="1" Height="18" Background="{StaticResource BorderBrush}" Margin="8,0"/>
+                                    <Button Content="复制并粘贴" MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"
+                                            ToolTip="复制选中网络并在其后插入副本（含站点与规则，仅停止状态可用）"
+                                            Command="{Binding DuplicateNetworkCommand}"
+                                            CommandParameter="{Binding ElementName=lvNetwork,Path=SelectedItem}"/>
+                                    <Button Style="{StaticResource IconButton}" Content="↑" ToolTip="上移选中网络（仅停止状态可用）" Margin="4,0,0,0"
+                                            Command="{Binding MoveNetworkUpCommand}"/>
+                                    <Button Style="{StaticResource IconButton}" Content="↓" ToolTip="下移选中网络（仅停止状态可用）" Margin="4,0,0,0"
+                                            Command="{Binding MoveNetworkDownCommand}"/>
                                 </StackPanel>
-                            </Grid>
+                            </StackPanel>
                         </Border>
 
                         <Grid Grid.Row="1">
@@ -339,6 +361,15 @@
                                                                 Command="{Binding RemoveStationCommand}"
                                                                 CommandParameter="{Binding ElementName=lvStation,Path=SelectedValue}"
                                                                 IsEnabled="{Binding CanEdit}"/>
+                                                        <Border Width="1" Height="18" Background="{StaticResource BorderBrush}" Margin="8,0"/>
+                                                        <Button Content="复制并粘贴" MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"
+                                                                ToolTip="复制选中站点并在其后插入副本（含规则，仅停止状态可用）" IsEnabled="{Binding CanEdit}"
+                                                                Command="{Binding DuplicateStationCommand}"
+                                                                CommandParameter="{Binding ElementName=lvStation,Path=SelectedItem}"/>
+                                                        <Button Style="{StaticResource IconButton}" Content="↑" ToolTip="上移选中站点（仅停止状态可用）" Margin="4,0,0,0"
+                                                                IsEnabled="{Binding CanEdit}" Command="{Binding MoveStationUpCommand}"/>
+                                                        <Button Style="{StaticResource IconButton}" Content="↓" ToolTip="下移选中站点（仅停止状态可用）" Margin="4,0,0,0"
+                                                                IsEnabled="{Binding CanEdit}" Command="{Binding MoveStationDownCommand}"/>
                                                     </StackPanel>
                                                 </Grid>
 
@@ -485,6 +516,15 @@
                                                                                         <Button Style="{StaticResource IconButtonDanger}" Content="−" ToolTip="删除规则" Margin="4,0,0,0"
                                                                                                 Command="{Binding RemoverRulerCommand}" IsEnabled="{Binding CanEdit}"
                                                                                                 CommandParameter="{Binding ElementName=lvRuler, Path=SelectedItem}"/>
+                                                                                        <Border Width="1" Height="18" Background="{StaticResource BorderBrush}" Margin="8,0"/>
+                                                                                        <Button Content="复制并粘贴" MinHeight="24" Padding="8,0" FontSize="11.5" FontWeight="SemiBold"
+                                                                                                ToolTip="复制选中规则并在其后插入副本（仅停止状态可用）" IsEnabled="{Binding CanEdit}"
+                                                                                                Command="{Binding DuplicateRulerCommand}"
+                                                                                                CommandParameter="{Binding ElementName=lvRuler, Path=SelectedItem}"/>
+                                                                                        <Button Style="{StaticResource IconButton}" Content="↑" ToolTip="上移选中规则（仅停止状态可用）" Margin="4,0,0,0"
+                                                                                                IsEnabled="{Binding CanEdit}" Command="{Binding MoveRulerUpCommand}"/>
+                                                                                        <Button Style="{StaticResource IconButton}" Content="↓" ToolTip="下移选中规则（仅停止状态可用）" Margin="4,0,0,0"
+                                                                                                IsEnabled="{Binding CanEdit}" Command="{Binding MoveRulerDownCommand}"/>
                                                                                     </StackPanel>
                                                                                 </Grid>
 

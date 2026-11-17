@@ -17,6 +17,8 @@ namespace 通用模拟器
     {
         [ObservableProperty] BindingList<NetworkConfigModel> networkList = new();
         [ObservableProperty] NetworkConfigModel? selectedNetwork;
+        /// <summary>参数名称：仅在停止状态可由用户设定，导出时作为默认文件名</summary>
+        [ObservableProperty] string configName = DefaultConfigName;
         /// <summary>状态栏显示的当前时间，由 DispatcherTimer 每秒刷新</summary>
         [ObservableProperty] string currentTimeText = DateTime.Now.ToString(TimeFormat);
         public bool IsRunning => cts is not null;
@@ -40,8 +42,9 @@ namespace 通用模拟器
         }
 
         const string ConfigFilter = "参数文件 (*.lsts)|*.lsts|所有文件 (*.*)|*.*";
+        const string DefaultConfigName = "通用模拟器";
 
-        /// <summary>导入参数：读取文件并反序列化，替换整个 NetworkList（仅停止状态可用）</summary>
+        /// <summary>导入参数：读取文件并反序列化，替换整个参数名称与 NetworkList（仅停止状态可用）</summary>
         [RelayCommand(CanExecute = nameof(IsStopped))]
         void Import()
         {
@@ -57,13 +60,15 @@ namespace 通用模拟器
             try
             {
                 var js = File.ReadAllText(dlg.FileName);
-                var list = JsonConvert.DeserializeObject<BindingList<NetworkConfigModel>>(js);
+                var file = ParameterFile.Parse(js);
+                var list = file.NetworkList;
                 if (list is null) throw new Exception("文件内容不是有效的参数配置");
 
                 // 销毁旧对象（释放网络/串口资源），再整体替换
                 foreach (var item in NetworkList) item.Dispose();
                 NetworkList.Clear();
                 foreach (var item in list) NetworkList.Add(item);
+                if (!string.IsNullOrWhiteSpace(file.Name)) ConfigName = file.Name;
 
                 SelectedNetwork = NetworkList.FirstOrDefault();
                 MessageBox.Show($"导入成功，共 {NetworkList.Count} 个网络。", "导入参数",
@@ -75,7 +80,7 @@ namespace 通用模拟器
             }
         }
 
-        /// <summary>导出参数：序列化 NetworkList 并写入用户选择的文件</summary>
+        /// <summary>导出参数：以参数名称作为默认文件名，并把名称随配置一起写入文件</summary>
         [RelayCommand]
         void Export()
         {
@@ -84,14 +89,15 @@ namespace 通用模拟器
                 Title = "导出参数",
                 Filter = ConfigFilter,
                 DefaultExt = ".lsts",
-                FileName = fileName,
+                FileName = SafeFileName(ConfigName) + ".lsts",
                 OverwritePrompt = true
             };
             if (dlg.ShowDialog() != true) return;
 
             try
             {
-                File.WriteAllText(dlg.FileName, JsonConvert.SerializeObject(NetworkList, Formatting.Indented));
+                var file = new ParameterFile { Name = ConfigName, NetworkList = NetworkList };
+                File.WriteAllText(dlg.FileName, file.ToJson(Formatting.Indented));
                 MessageBox.Show("导出成功。", "导出参数", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -100,7 +106,17 @@ namespace 通用模拟器
             }
         }
 
-        [RelayCommand]
+        /// <summary>过滤文件名中的非法字符，保证参数名称可直接作为默认文件名</summary>
+        static string SafeFileName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return DefaultConfigName;
+            var chars = Path.GetInvalidFileNameChars();
+            var cleaned = new string(name.Select(c => chars.Contains(c) ? '_' : c).ToArray()).Trim();
+            return cleaned.Length == 0 ? DefaultConfigName : cleaned;
+        }
+
+        /// <summary>删除网络：仅停止状态可用，避免运行中释放正在使用的端口/串口</summary>
+        [RelayCommand(CanExecute = nameof(IsStopped))]
         void RemoveNetwork(NetworkConfigModel? model)
         {
             if(model == null) return;
@@ -108,7 +124,38 @@ namespace 通用模拟器
             if (NetworkList.Contains(model)) NetworkList.Remove(model);
             model?.Dispose();
         }
-         
+
+        /// <summary>复制并粘贴网络：深拷贝选中网络（含站点与规则）并插入其后，仅停止状态可用</summary>
+        [RelayCommand(CanExecute = nameof(IsStopped))]
+        void DuplicateNetwork(NetworkConfigModel? model)
+        {
+            if (model is null) return;
+            var copy = ModelCloner.Clone(model);
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int index = NetworkList.IndexOf(model);
+            if (index < 0) index = NetworkList.Count - 1;
+            NetworkList.Insert(index + 1, copy);
+            SelectedNetwork = copy;
+        }
+
+        [RelayCommand(CanExecute = nameof(IsStopped))]
+        void MoveNetworkUp() => MoveNetwork(-1);
+
+        [RelayCommand(CanExecute = nameof(IsStopped))]
+        void MoveNetworkDown() => MoveNetwork(1);
+
+        void MoveNetwork(int offset)
+        {
+            var item = SelectedNetwork;
+            if (item is null) return;
+            int index = NetworkList.IndexOf(item);
+            int target = index + offset;
+            if (index < 0 || target < 0 || target >= NetworkList.Count) return;
+            NetworkList.RemoveAt(index);
+            NetworkList.Insert(target, item);
+            SelectedNetwork = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
+        }
 
         CancellationTokenSource? cts;
         readonly List<Task> tasks = new();
@@ -169,11 +216,15 @@ namespace 通用模拟器
             NotifyStoppedCommands();
         }
 
-        /// <summary>运行状态变化后刷新“仅停止状态可用”的命令（新增网络、导入参数）</summary>
+        /// <summary>运行状态变化后刷新“仅停止状态可用”的命令</summary>
         void NotifyStoppedCommands()
         {
             AddNetworkCommand.NotifyCanExecuteChanged();
+            RemoveNetworkCommand.NotifyCanExecuteChanged();
             ImportCommand.NotifyCanExecuteChanged();
+            DuplicateNetworkCommand.NotifyCanExecuteChanged();
+            MoveNetworkUpCommand.NotifyCanExecuteChanged();
+            MoveNetworkDownCommand.NotifyCanExecuteChanged();
         }
 
         /// <summary>校验站号与端口/串口冲突，返回首个错误信息（null 表示无问题）</summary>
@@ -224,11 +275,11 @@ namespace 通用模拟器
             NotifyStoppedCommands();
         } 
 
-        const string fileName = "Setting.json";
+        const string fileName = "通用模拟器Setting.json";
         // 配置放在 %LOCALAPPDATA%\Modbus从站模拟器 下：
         // 安装到 C:\Program Files 后程序目录不可写，普通权限下会静默丢失配置
         static readonly string AppDataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Modbus从站模拟器");
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Modbus从站模拟器");
         static string SettingPath => Path.Combine(AppDataDir, fileName);
         // 旧版本（安装在哪就存哪）的遗留位置，仅用于首次迁移
         static string LegacySettingPath => Path.Combine(AppContext.BaseDirectory, fileName);
@@ -238,7 +289,8 @@ namespace 通用模拟器
             try
             {
                 Directory.CreateDirectory(AppDataDir);
-                File.WriteAllText(SettingPath, JsonConvert.SerializeObject(NetworkList));
+                var file = new ParameterFile { Name = ConfigName, NetworkList = NetworkList };
+                File.WriteAllText(SettingPath, file.ToJson());
             }
             catch (Exception ex)
             {
@@ -259,7 +311,9 @@ namespace 通用模拟器
 
                 if (!File.Exists(SettingPath)) return;
                 var js = File.ReadAllText(SettingPath);
-                var list = JsonConvert.DeserializeObject<BindingList<NetworkConfigModel>>(js);
+                var file = ParameterFile.Parse(js);
+                if (!string.IsNullOrWhiteSpace(file.Name)) ConfigName = file.Name;
+                var list = file.NetworkList;
                 if (list is not null)
                 {
                     NetworkList.Clear();

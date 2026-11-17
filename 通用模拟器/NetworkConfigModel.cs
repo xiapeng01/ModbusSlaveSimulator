@@ -152,6 +152,49 @@ namespace 通用模拟器
             if (StationList.Contains(station)) StationList.Remove(station);
         }
 
+        /// <summary>复制并粘贴站点：深拷贝选中站点（含规则）并插入其后，重新分配未占用站号，仅停止状态可用</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void DuplicateStation(StationInformationModel? station)
+        {
+            if (station is null) return;
+            var copy = ModelCloner.Clone(station);
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int no = Enumerable.Range(1, 247).FirstOrDefault(n => !StationList.Any(s => s.StationNo == n), 0);
+            if (no == 0)
+            {
+                MessageBox.Show("站号 1~247 已全部占用，无法复制并粘贴站点。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            copy.StationNo = no;
+
+            int index = StationList.IndexOf(station);
+            if (index < 0) index = StationList.Count - 1;
+            StationList.Insert(index + 1, copy);
+            SelectedStation = copy;
+        }
+
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void MoveStationUp() => MoveStation(-1);
+
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void MoveStationDown() => MoveStation(1);
+
+        void MoveStation(int offset)
+        {
+            var item = SelectedStation;
+            if (item is null) return;
+            int index = StationList.IndexOf(item);
+            int target = index + offset;
+            if (index < 0 || target < 0 || target >= StationList.Count) return;
+            StationList.RemoveAt(index);
+            StationList.Insert(target, item);
+            SelectedStation = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
+        }
+
         bool isDsiposed = false;
         /// <summary>当前网络是否已被释放（释放后监听任务抛出的异常属预期行为，不应报错）</summary>
         bool released;
@@ -414,6 +457,41 @@ namespace 通用模拟器
             {
                 MessageBox.Show(ex.Message,"错误");
             }
+        }
+
+        /// <summary>复制并粘贴规则：深拷贝选中规则并插入其后（不携带运行期 Tick/Random），仅停止状态可用</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void DuplicateRuler(RulerModel? ruler)
+        {
+            if (ruler is null) return;
+            var copy = ModelCloner.Clone(ruler);
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int index = RulerList.IndexOf(ruler);
+            if (index < 0) index = RulerList.Count - 1;
+            RulerList.Insert(index + 1, copy);
+            SelectedRuler = copy;
+        }
+
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void MoveRulerUp() => MoveRuler(-1);
+
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void MoveRulerDown() => MoveRuler(1);
+
+        void MoveRuler(int offset)
+        {
+            var item = SelectedRuler;
+            if (item is null) return;
+            int index = RulerList.IndexOf(item);
+            int target = index + offset;
+            if (index < 0 || target < 0 || target >= RulerList.Count) return;
+            RulerList.RemoveAt(index);
+            RulerList.Insert(target, item);
+            SelectedRuler = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
         }
     }
 
