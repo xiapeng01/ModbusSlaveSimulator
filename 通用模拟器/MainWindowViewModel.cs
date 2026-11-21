@@ -190,22 +190,7 @@ namespace 通用模拟器
             EnsureIds();
             RefreshStationTargets();
             // 规则按稳定 ID 解析目标从站（运行期对象不入配置）
-            //用 for 循环替代嵌套 FirstOrDefault(lambda)，避免每次解析分配闭包
-            RuleRuntime.ResolveSlave = (networkId, stationId) =>
-            {
-                for (int i = 0; i < NetworkList.Count; i++)
-                {
-                    var network = NetworkList[i];
-                    if (network.Id != networkId) continue;
-                    for (int j = 0; j < network.StationList.Count; j++)
-                    {
-                        var station = network.StationList[j];
-                        if (station.Id == stationId) return station.Slave;
-                    }
-                    return null;
-                }
-                return null;
-            };
+            RuleRuntime.ResolveSlave = (networkId, stationId) => FindStationByGuid(networkId, stationId)?.Slave;
             // BindingList 增删项不会触发 Count 相关绑定刷新，这里手动通知
             NetworkList.ListChanged += (_, __) =>
             {
@@ -223,6 +208,23 @@ namespace 通用模拟器
             tickRefreshTimer = new DispatcherTimer { Interval = TickRefreshInterval };
             tickRefreshTimer.Tick += (_, __) => RefreshTickDisplay();
             tickRefreshTimer.Start();
+        }
+
+        /// <summary>按公开 GUID 查找站点对象；不依赖运行期才创建的 Slave，故可用于启动前校验</summary>
+        StationInformationModel? FindStationByGuid(Guid networkId, Guid stationId)
+        {
+            for (int i = 0; i < NetworkList.Count; i++)
+            {
+                var network = NetworkList[i];
+                if (network.Id != networkId) continue;
+                for (int j = 0; j < network.StationList.Count; j++)
+                {
+                    var station = network.StationList[j];
+                    if (station.Id == stationId) return station;
+                }
+                return null;
+            }
+            return null;
         }
 
         /// <summary>在 UI 线程批量通知各层 Tick 刷新显示（仅运行时有意义，停止时数据不变也无害）</summary>
@@ -285,6 +287,32 @@ namespace 通用模拟器
             foreach (var network in NetworkList)
             {
                 if (!network.IsEnable) continue;
+
+                if (network.Interval < 10)
+                    return $"网络「{network.Name}」刷新间隔 {network.Interval} ms 无效，应不小于 10 ms";
+                var badIntervalStation = network.StationList
+                    .Where(s => s.Interval < 1)
+                    .Select(s => s.Name)
+                    .FirstOrDefault();
+                if (badIntervalStation is not null)
+                    return $"网络「{network.Name}」的站点「{badIntervalStation}」间隔时间无效，应不小于 1 ms";
+
+                // 跨网络引用的 GUID 可能悬空（导入/删除站点后），启动前一次性校验，避免运行期静默失效
+                foreach (var station in network.StationList)
+                {
+                    foreach (var ruler in station.RulerList)
+                    {
+                        if (!ruler.IsEnable) continue;
+                        if (ruler.PumpInputSource == EnumPumpInputSource.OtherStation &&
+                            (ruler.InputNetworkId == Guid.Empty || ruler.InputStationId == Guid.Empty ||
+                             FindStationByGuid(ruler.InputNetworkId, ruler.InputStationId) is null))
+                            return $"规则「{ruler.Name}」未选择有效的输入源网络或从站";
+                        if (ruler.PumpOutputTarget == EnumPumpOutputTarget.OtherStation &&
+                            (ruler.TargetNetworkId == Guid.Empty || ruler.TargetStationId == Guid.Empty ||
+                             FindStationByGuid(ruler.TargetNetworkId, ruler.TargetStationId) is null))
+                            return $"规则「{ruler.Name}」未选择有效的输出目标网络或从站";
+                    }
+                }
 
                 var invalid = network.StationList
                     .Where(s => s.IsEnable && (s.StationNo < 1 || s.StationNo > 247))

@@ -248,21 +248,16 @@
                             <ContentControl.ContentTemplate>
                                 <DataTemplate d:DataType="local:NetworkConfigModel">
                                     <StackPanel>
-                                        <!-- 网络配置 -->
-                                        <Border Style="{StaticResource Card}">
+                                        <!-- 网络配置：可折叠分组 -->
+                                        <Expander Style="{StaticResource ModernExpander}" Header="网络配置" IsExpanded="True" Margin="0">
                                             <StackPanel>
-                                                <Grid Margin="0,0,0,14">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <Border Width="3" Height="16" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}" Margin="0,0,8,0"/>
-                                                        <TextBlock Text="网络配置" Style="{StaticResource SectionTitle}"/>
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Grid Margin="0,0,0,10" HorizontalAlignment="Right">
+                                                    <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="启用" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                        <CheckBox IsChecked="{Binding IsEnable}"/>
+                                                        <CheckBox IsChecked="{Binding IsEnable}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Grid>
-
                                                 <Grid IsEnabled="{Binding CanEdit}">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="88"/>
@@ -345,7 +340,7 @@
                                                     </Border>
                                                 </Grid>
                                             </StackPanel>
-                                        </Border>
+                                        </Expander>
 
                                         <!-- 站点 -->
                                         <Border Style="{StaticResource Card}" Margin="0,14,0,0">
@@ -457,7 +452,8 @@
                                                             <ContentControl.ContentTemplate>
                                                                 <DataTemplate d:DataType="local:StationInformationModel">
                                                                     <StackPanel>
-                                                                        <!-- ===== 站点信息（运行期锁定） ===== -->
+                                                                        <!-- ===== 站点信息（运行期锁定）：用可折叠分组组织 ===== -->
+                                                                        <Expander Style="{StaticResource ModernExpander}" Header="站点信息" IsExpanded="True">
                                                                         <Grid IsEnabled="{Binding CanEdit}">
                                                                             <Grid.ColumnDefinitions>
                                                                                 <ColumnDefinition Width="72"/>
@@ -505,6 +501,7 @@
                                                                                            VerticalAlignment="Center" FontWeight="SemiBold"/>
                                                                             </Border>
                                                                         </Grid>
+                                                                        </Expander>
 
                                                                         <!-- ===== 数据规则 ===== -->
                                                                         <Border Margin="0,16,0,0" CornerRadius="8" Padding="14"
@@ -619,9 +616,8 @@
                                                                                             </Border.Style>
                                                                                         </Border>
 
-                                                                                        <!-- 规则属性面板：运行期锁定（列表仍可选中查看，只是不能改） -->
-                                                                                        <ContentControl Content="{Binding ElementName=lvRuler, Path=SelectedValue}"
-                                                                                                        IsEnabled="{Binding CanEdit}">
+                                                                                        <!-- 规则属性面板：运行期仅锁定输入控件，Expander 仍可展开查看 -->
+                                                                                        <ContentControl Content="{Binding ElementName=lvRuler, Path=SelectedValue}">
                                                                                             <ContentControl.Style>
                                                                                                 <Style TargetType="ContentControl">
                                                                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -635,7 +631,21 @@
                                                                                             <ContentControl.ContentTemplate>
                                                                                                 <DataTemplate d:DataType="local:RulerModel">
                                                                                                     <StackPanel>
+                                                                                                        <StackPanel.Resources>
+                                                                                                            <!-- 运行期锁定：输入控件禁用，但 Expander 标题仍可点击展开查看 -->
+                                                                                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                                                                                <Setter Property="IsEnabled" Value="{Binding CanEdit}"/>
+                                                                                                            </Style>
+                                                                                                            <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                                                                                                <Setter Property="IsEnabled" Value="{Binding CanEdit}"/>
+                                                                                                            </Style>
+                                                                                                            <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                                                                                                                <Setter Property="IsEnabled" Value="{Binding CanEdit}"/>
+                                                                                                            </Style>
+                                                                                                        </StackPanel.Resources>
                                                                                                         <!-- 基本信息 -->
+                                                                                                        <GroupBox Style="{StaticResource ModernGroupBox}" Header="基本信息" Margin="0">
+                                                                                                            <StackPanel>
                                                                                                         <Grid>
                                                                                                             <Grid.ColumnDefinitions>
                                                                                                                 <ColumnDefinition Width="68"/>
@@ -658,13 +668,13 @@
                                                                                                                 </ComboBox.ItemTemplate>
                                                                                                             </ComboBox>
                                                                                                         </Grid>
+                                                                                                            </StackPanel>
+                                                                                                        </GroupBox>
 
                                                                                                         <!-- 输入来源与读取框（伺服流量泵） -->
-                                                                                                        <Border Margin="0,14,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
-                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
+                                                                                                        <Expander Style="{StaticResource ModernExpander}" Header="输入来源与读取" IsExpanded="False"
+                                                                                                                  Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
                                                                                                             <StackPanel>
-                                                                                                                <TextBlock Text="输入来源与读取" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
                                                                                                                 <Grid>
                                                                                                                     <Grid.ColumnDefinitions>
                                                                                                                         <ColumnDefinition Width="68"/>
@@ -721,15 +731,15 @@
                                                                                                                              ToolTip="输入值 = 原始值 × 读取缩放 + 读取偏置"/>
                                                                                                                 </Grid>
                                                                                                             </StackPanel>
-                                                                                                        </Border>
+                                                                                                        </Expander>
 
                                                                                                         <!-- 值拷贝参数（仅值拷贝显示）：源参数框 + 目标参数框 -->
-                                                                                                        <StackPanel Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ValueCopy}">
+                                                                                                        <Expander Style="{StaticResource ModernExpander}" Header="值拷贝参数" IsExpanded="False"
+                                                                                                                  Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ValueCopy}">
+                                                                                                            <StackPanel>
                                                                                                             <!-- 源参数框 -->
-                                                                                                            <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
-                                                                                                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                                                                                            <GroupBox Style="{StaticResource ModernGroupBox}" Header="源参数">
                                                                                                                 <StackPanel>
-                                                                                                                    <TextBlock Text="源参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
                                                                                                                     <Grid>
                                                                                                                         <Grid.ColumnDefinitions>
                                                                                                                             <ColumnDefinition Width="68"/>
@@ -795,13 +805,11 @@
                                                                                                                                  ToolTip="源值 = 原始值 × 源缩放 + 源偏置"/>
                                                                                                                     </Grid>
                                                                                                                 </StackPanel>
-                                                                                                            </Border>
+                                                                                                            </GroupBox>
 
                                                                                                             <!-- 目标参数框 -->
-                                                                                                            <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
-                                                                                                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                                                                                            <GroupBox Style="{StaticResource ModernGroupBox}" Header="目标参数">
                                                                                                                 <StackPanel>
-                                                                                                                    <TextBlock Text="目标参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
                                                                                                                     <Grid>
                                                                                                                         <Grid.ColumnDefinitions>
                                                                                                                             <ColumnDefinition Width="68"/>
@@ -870,18 +878,17 @@
                                                                                                                                  ToolTip="目标值 = 源值 × 目标缩放 + 目标偏置"/>
                                                                                                                     </Grid>
                                                                                                                 </StackPanel>
-                                                                                                            </Border>
+                                                                                                            </GroupBox>
 
                                                                                                             <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" HorizontalAlignment="Left" TextAlignment="Left" Margin="0,10,0,0"
                                                                                                                        Text="源数量=1：目标数量 0=不拷贝、1=点对点、>1=把源值连续写多个。源数量>1：目标数量不生效，按源数量多对多拷贝。选择其它网络从站时，字节序跟随该从站自身设置。"/>
-                                                                                                        </StackPanel>
+                                                                                                            </StackPanel>
+                                                                                                        </Expander>
 
                                                                                                         <!-- 输出参数与目标框（值拷贝使用独立的值拷贝参数框） -->
-                                                                                                        <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
-                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=!ValueCopy}">
+                                                                                                        <Expander Style="{StaticResource ModernExpander}" Header="输出参数与目标" IsExpanded="False"
+                                                                                                                  Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=!ValueCopy}">
                                                                                                             <StackPanel>
-                                                                                                                <TextBlock Text="输出参数与目标" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
                                                                                                                 <Grid>
                                                                                                                     <Grid.ColumnDefinitions>
                                                                                                                         <ColumnDefinition Width="68"/>
@@ -976,14 +983,12 @@
                                                                                                                              Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}"/>
                                                                                                                 </Grid>
                                                                                                             </StackPanel>
-                                                                                                        </Border>
+                                                                                                        </Expander>
 
                                                                                                         <!-- 水泵流量计参数框（伺服流量泵） -->
-                                                                                                        <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
-                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
+                                                                                                        <Expander Style="{StaticResource ModernExpander}" Header="水泵流量计参数" IsExpanded="False"
+                                                                                                                  Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
                                                                                                             <StackPanel>
-                                                                                                                <TextBlock Text="水泵流量计参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
                                                                                                                 <Grid>
                                                                                                                     <Grid.ColumnDefinitions>
                                                                                                                         <ColumnDefinition Width="68"/>
@@ -1010,9 +1015,12 @@
                                                                                                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" HorizontalAlignment="Left" TextAlignment="Left" Margin="0,10,0,0"
                                                                                                                            Text="默认 -3000~-10、3000~10 对应原方法；单向泵可改 0~3000 与 0~10。滞后单位秒，填 0 不启用；每 10ms 运算一次并放入历史下标 0，滞后 0.01s 取下标 1、1s 取下标 100，历史不足时读数为 0。"/>
                                                                                                             </StackPanel>
-                                                                                                        </Border>
+                                                                                                        </Expander>
 
-                                                                                                        <Grid Margin="0,12,0,0">
+                                                                                                        <!-- 备注与运行状态 -->
+                                                                                                        <GroupBox Style="{StaticResource ModernGroupBox}" Header="备注与运行状态">
+                                                                                                        <StackPanel>
+                                                                                                        <Grid Margin="0">
                                                                                                             <Grid.ColumnDefinitions>
                                                                                                                 <ColumnDefinition Width="68"/>
                                                                                                                 <ColumnDefinition Width="*"/>
@@ -1028,6 +1036,8 @@
                                                                                                             <TextBlock Grid.Column="0" Text="写入次数" Style="{StaticResource FormLabel}"/>
                                                                                                             <TextBox Grid.Column="1" Text="{Binding Tick, Mode=OneWay}" IsReadOnly="True"/>
                                                                                                         </Grid>
+                                                                                                        </StackPanel>
+                                                                                                        </GroupBox>
                                                                                                     </StackPanel>
                                                                                                 </DataTemplate>
                                                                                             </ContentControl.ContentTemplate>

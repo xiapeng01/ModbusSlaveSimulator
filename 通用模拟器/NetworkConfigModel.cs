@@ -303,9 +303,9 @@ namespace 通用模拟器
 
             lock (networkLock)
             {
-                if (SlaveNetwork is not null)
+                // 创建期间可能已执行 Stop/Dispose：此时不能重新挂上实例，也不能把 released 改回 false
+                if (isDsiposed || released || SlaveNetwork is not null)
                 {
-                    // 并发情况下已被创建，丢弃本次创建的实例
                     try { network.Dispose(); } catch { }
                     return SlaveNetwork;
                 }
@@ -377,8 +377,16 @@ namespace 通用模拟器
                                     ReportError(err);
                                     continue;
                                 }
-                                ruler.WriteData(station.Slave, station.StationNo);
-                                ruler.IncrementTick();
+                                try
+                                {
+                                    ruler.WriteData(station.Slave, station.StationNo);
+                                    ruler.IncrementTick();
+                                }
+                                catch (Exception ex)
+                                {
+                                    // 单条规则失败不影响同网络后续站点/规则的本周期执行
+                                    ReportError($"站点「{station.Name}」规则「{ruler.Name}」执行失败：{ex.Message}");
+                                }
                             }
                             station.IncrementTick();
                         }
@@ -480,6 +488,12 @@ namespace 通用模拟器
         // 字节序修改后立刻作用到已创建的从站
         partial void OnEndianChanged(NModbus.Extensions.EnumEndian value) => Slave?.SetEndian(value);
 
+        // 站点锁定/解锁时同步到所有规则，使运行期规则详情可选中查看但不可编辑
+        partial void OnCanEditChanged(bool value)
+        {
+            foreach (var ruler in RulerList) ruler.CanEdit = value;
+        }
+
         public void Dispose()
         {
             Slave = null;
@@ -489,7 +503,7 @@ namespace 通用模拟器
         [RelayCommand]
         void AddRuler()
         {
-            RulerModel ruler = new RulerModel();
+            RulerModel ruler = new RulerModel { CanEdit = CanEdit };
             ruler.Name = $"生成随机数{RulerList.Count + 1}";
             RulerList.Add(ruler);
             SelectedRuler = ruler;  // 新增后自动选中，右侧直接可编辑
@@ -501,6 +515,7 @@ namespace 通用模拟器
         {
             RulerModel ruler = new RulerModel
             {
+                CanEdit = CanEdit,
                 Name = $"伺服流量泵{RulerList.Count + 1}",
                 RulerType = EnumRulerType.ServoFlowPump,
                 DataType = EnumDataType.Float,
@@ -532,6 +547,7 @@ namespace 通用模拟器
         {
             if (ruler is null) return;
             var copy = ModelCloner.Clone(ruler);
+            copy.CanEdit = CanEdit;
             copy.Name = ModelCloner.WithCopySuffix(copy.Name);
 
             int index = RulerList.IndexOf(ruler);
@@ -638,26 +654,37 @@ namespace 通用模拟器
         [ObservableProperty] Guid targetNetworkId;
         [ObservableProperty] Guid targetStationId;
 
+        /// <summary>运行期只读标记：由所属站点在启动/停止时同步，不持久化</summary>
+        [property: JsonIgnore][ObservableProperty] bool canEdit = true;
+
+        partial void OnCanEditChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanEditTargetStation));
+            OnPropertyChanged(nameof(CanEditOutputParams));
+            OnPropertyChanged(nameof(CanEditInputStation));
+            OnPropertyChanged(nameof(CanEditCopyTargetLength));
+        }
+
         /// <summary>是否为需要选择网络/从站来源的规则（泵或值拷贝）</summary>
         [JsonIgnore]
         bool IsSourceTargetRule => RulerType == EnumRulerType.ServoFlowPump || RulerType == EnumRulerType.ValueCopy;
 
         /// <summary>目标网络/目标从站是否可编辑：输出目标为"其它网络的从站"时可编辑（所有规则类型）</summary>
         [JsonIgnore]
-        public bool CanEditTargetStation => PumpOutputTarget == EnumPumpOutputTarget.OtherStation;
+        public bool CanEditTargetStation => CanEdit && PumpOutputTarget == EnumPumpOutputTarget.OtherStation;
 
         /// <summary>输出参数是否可编辑：输出目标为"不写输出"时禁用（所有规则类型）</summary>
         [JsonIgnore]
-        public bool CanEditOutputParams => PumpOutputTarget != EnumPumpOutputTarget.None;
+        public bool CanEditOutputParams => CanEdit && PumpOutputTarget != EnumPumpOutputTarget.None;
 
         /// <summary>输入网络/输入从站是否可编辑：仅输入来源为"其它网络的从站"时可编辑</summary>
         [JsonIgnore]
-        public bool CanEditInputStation => IsSourceTargetRule
+        public bool CanEditInputStation => CanEdit && IsSourceTargetRule
             && PumpInputSource == EnumPumpInputSource.OtherStation;
 
         /// <summary>值拷贝目标数量是否可编辑：仅源数量=1且输出目标非"不写输出"时可编辑；源数量>1时多对多、目标数量不生效</summary>
         [JsonIgnore]
-        public bool CanEditCopyTargetLength => RulerType == EnumRulerType.ValueCopy
+        public bool CanEditCopyTargetLength => CanEdit && RulerType == EnumRulerType.ValueCopy
             && SourceLength <= 1 && PumpOutputTarget != EnumPumpOutputTarget.None;
 
         partial void OnRulerTypeChanged(EnumRulerType value)
@@ -819,6 +846,10 @@ namespace 通用模拟器
         /// <summary>不足一个运算节拍的累计时间（毫秒）</summary>
         [JsonIgnore] double pumpAccumMs;
 
+        /// <summary>数据类型占用的寄存器字数（32 位与浮点占 2 个字）</summary>
+        static int WordCount(EnumDataType type) =>
+            type is EnumDataType.Int32 or EnumDataType.UInt32 or EnumDataType.Float ? 2 : 1;
+
         /// <summary>校验规则参数，返回错误信息（null 表示合法）</summary>
         public string? Validate()
         {
@@ -830,7 +861,7 @@ namespace 通用模拟器
                 if (InputAddress < 0 || InputAddress > 65535) return $"值拷贝「{Name}」源地址 {InputAddress} 超出 0~65535";
                 if (InputDataType == EnumDataType.String) return $"值拷贝「{Name}」源数据类型不能为 String";
                 if (SourceLength < 1 || SourceLength > 2000) return $"值拷贝「{Name}」源数量 {SourceLength} 超出 1~2000";
-                if (InputAddress + SourceLength > 65536) return $"值拷贝「{Name}」源地址范围超出 65535";
+                if (InputAddress + SourceLength * WordCount(InputDataType) > 65536) return $"值拷贝「{Name}」源地址范围超出 65535";
                 if (PumpInputSource == EnumPumpInputSource.OtherStation && (InputNetworkId == Guid.Empty || InputStationId == Guid.Empty))
                     return $"值拷贝「{Name}」未选择来源网络或从站";
 
@@ -843,12 +874,12 @@ namespace 通用模拟器
                     {
                         //目标数量 0=不拷贝、1~2000=有效
                         if (Length < 0 || Length > 2000) return $"值拷贝「{Name}」目标数量 {Length} 超出 0~2000";
-                        if (Length > 0 && StartAddress + Length > 65536) return $"值拷贝「{Name}」目标地址范围超出 65535";
+                        if (Length > 0 && StartAddress + Length * WordCount(DataType) > 65536) return $"值拷贝「{Name}」目标地址范围超出 65535";
                     }
                     else
                     {
                         //多对多：按源数量写，校验目标地址+源数量范围
-                        if (StartAddress + SourceLength > 65536) return $"值拷贝「{Name}」目标地址范围超出 65535";
+                        if (StartAddress + SourceLength * WordCount(DataType) > 65536) return $"值拷贝「{Name}」目标地址范围超出 65535";
                     }
                     if (PumpOutputTarget == EnumPumpOutputTarget.OtherStation && (TargetNetworkId == Guid.Empty || TargetStationId == Guid.Empty))
                         return $"值拷贝「{Name}」未选择目标网络或从站";
@@ -862,7 +893,7 @@ namespace 通用模拟器
             {
                 if (StartAddress < 0 || StartAddress > 65535) return $"规则「{Name}」输出起始地址 {StartAddress} 超出 0~65535";
                 if (Length < 1 || Length > 2000) return $"规则「{Name}」数量 {Length} 超出 1~2000";
-                if (StartAddress + Length > 65536) return $"规则「{Name}」输出地址范围 {StartAddress}~{StartAddress + Length} 超出 65535";
+                if (StartAddress + Length * WordCount(DataType) > 65536) return $"规则「{Name}」输出地址范围 {StartAddress}~{StartAddress + Length * WordCount(DataType) - 1} 超出 65535";
                 if (PumpOutputTarget == EnumPumpOutputTarget.OtherStation && (TargetNetworkId == Guid.Empty || TargetStationId == Guid.Empty))
                     return $"规则「{Name}」未选择输出目标网络或从站";
             }
@@ -871,10 +902,12 @@ namespace 通用模拟器
 
             if (InputAddress < 0 || InputAddress > 65535) return $"伺服流量泵「{Name}」输入地址 {InputAddress} 超出 0~65535";
             if (InputDataType == EnumDataType.String) return $"伺服流量泵「{Name}」输入数据类型不能为 String";
+            if (writeOutput && DataType == EnumDataType.String) return $"伺服流量泵「{Name}」输出数据类型不能为 String";
             if (PumpInputSource == EnumPumpInputSource.OtherStation && (InputNetworkId == Guid.Empty || InputStationId == Guid.Empty))
                 return $"伺服流量泵「{Name}」未选择输入源网络或从站";
-            if (Math.Abs(CommandHigh - CommandLow) < double.Epsilon) return $"伺服流量泵「{Name}」指令上限与下限不能相同";
-            if (LagTime < 0) return $"伺服流量泵「{Name}」滞后时间不能为负";
+            if (CommandHigh <= CommandLow) return $"伺服流量泵「{Name}」指令上限必须大于下限";
+            if (double.IsNaN(LagTime) || double.IsInfinity(LagTime) || LagTime < 0 || LagTime > 3600)
+                return $"伺服流量泵「{Name}」滞后时间 {LagTime} 超出 0~3600 秒";
             return null;
         }
 
