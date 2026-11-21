@@ -279,6 +279,7 @@
                                                         <RowDefinition Height="Auto"/>
                                                         <RowDefinition Height="Auto"/>
                                                         <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
                                                     </Grid.RowDefinitions>
 
                                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" Style="{StaticResource FormLabel}"/>
@@ -327,13 +328,17 @@
                                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
                                                     <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
 
+                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="唯一标识(GUID)" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Id, Mode=OneWay}" IsReadOnly="True" Margin="0,10,0,0"
+                                                             ToolTip="网络的公开唯一标识，供规则选择输出目标使用"/>
+
                                                     <!-- 运行状态（只读），与上方配置区分隔 -->
-                                                    <Border Grid.Row="5" Grid.ColumnSpan="5" Height="1" Margin="0,16,0,0"
+                                                    <Border Grid.Row="6" Grid.ColumnSpan="5" Height="1" Margin="0,16,0,0"
                                                             Background="{StaticResource BorderBrush}" SnapsToDevicePixels="True"/>
-                                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="心跳计数" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
-                                                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Tick}" IsReadOnly="True" Margin="0,14,0,0"/>
-                                                    <TextBlock Grid.Row="6" Grid.Column="3" Text="站点数量" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
-                                                    <Border Grid.Row="6" Grid.Column="4" Margin="0,14,0,0" CornerRadius="6"
+                                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="心跳计数" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
+                                                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Tick, Mode=OneWay}" IsReadOnly="True" Margin="0,14,0,0"/>
+                                                    <TextBlock Grid.Row="7" Grid.Column="3" Text="站点数量" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
+                                                    <Border Grid.Row="7" Grid.Column="4" Margin="0,14,0,0" CornerRadius="6"
                                                             Background="{StaticResource SurfaceAltBrush}" Height="32">
                                                         <TextBlock Text="{Binding StationList.Count}" Margin="12,0,0,0"
                                                                    VerticalAlignment="Center" FontWeight="SemiBold"/>
@@ -467,6 +472,7 @@
                                                                                 <RowDefinition Height="Auto"/>
                                                                                 <RowDefinition Height="Auto"/>
                                                                                 <RowDefinition Height="Auto"/>
+                                                                                <RowDefinition Height="Auto"/>
                                                                             </Grid.RowDefinitions>
 
                                                                             <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" Style="{StaticResource FormLabel}"/>
@@ -482,14 +488,18 @@
                                                                             <TextBlock Grid.Row="2" Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
                                                                             <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
 
+                                                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="唯一标识(GUID)" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                            <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Id, Mode=OneWay}" IsReadOnly="True" Margin="0,10,0,0"
+                                                                                     ToolTip="站点的公开唯一标识，供规则选择输出目标使用"/>
+
                                                                             <!-- 运行状态（只读），与上方配置区分隔 -->
-                                                                            <Border Grid.Row="3" Grid.ColumnSpan="5" Height="1" Margin="0,16,0,0"
+                                                                            <Border Grid.Row="4" Grid.ColumnSpan="5" Height="1" Margin="0,16,0,0"
                                                                                     Background="{StaticResource BorderBrush}" SnapsToDevicePixels="True"/>
 
-                                                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="心跳计数" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
-                                                                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Tick}" IsReadOnly="True" Margin="0,14,0,0"/>
-                                                                            <TextBlock Grid.Row="4" Grid.Column="3" Text="规则数量" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
-                                                                            <Border Grid.Row="4" Grid.Column="4" Margin="0,14,0,0" CornerRadius="6"
+                                                                            <TextBlock Grid.Row="5" Grid.Column="0" Text="心跳计数" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
+                                                                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Tick, Mode=OneWay}" IsReadOnly="True" Margin="0,14,0,0"/>
+                                                                            <TextBlock Grid.Row="5" Grid.Column="3" Text="规则数量" Style="{StaticResource FormLabel}" Margin="0,14,10,0"/>
+                                                                            <Border Grid.Row="5" Grid.Column="4" Margin="0,14,0,0" CornerRadius="6"
                                                                                     Background="{StaticResource SurfaceAltBrush}" Height="32">
                                                                                 <TextBlock Text="{Binding RulerList.Count}" Margin="12,0,0,0"
                                                                                            VerticalAlignment="Center" FontWeight="SemiBold"/>
@@ -511,7 +521,7 @@
                                                                                         </Border>
                                                                                     </StackPanel>
                                                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                                                        <Button Style="{StaticResource IconButton}" Content="+" ToolTip="新增规则"
+                                                                                        <Button Style="{StaticResource IconButton}" Content="+" ToolTip="新增规则（新增后在右侧『规则类型』下拉框选择类型）"
                                                                                                 Command="{Binding AddRulerCommand}" IsEnabled="{Binding CanEdit}"/>
                                                                                         <Button Style="{StaticResource IconButtonDanger}" Content="−" ToolTip="删除规则" Margin="4,0,0,0"
                                                                                                 Command="{Binding RemoverRulerCommand}" IsEnabled="{Binding CanEdit}"
@@ -554,7 +564,8 @@
                                                                                                                            TextTrimming="CharacterEllipsis"/>
                                                                                                                 <TextBlock FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextSecondaryBrush}">
                                                                                                                     <TextBlock.Text>
-                                                                                                                        <MultiBinding StringFormat="{}{0} @ {1}">
+                                                                                                                        <MultiBinding StringFormat="{}{0} · {1} @ {2}">
+                                                                                                                            <Binding Path="RulerType" Converter="{local:EnumDescriptionConverter}"/>
                                                                                                                             <Binding Path="DataType"/>
                                                                                                                             <Binding Path="StartAddress"/>
                                                                                                                         </MultiBinding>
@@ -623,60 +634,401 @@
                                                                                             </ContentControl.Style>
                                                                                             <ContentControl.ContentTemplate>
                                                                                                 <DataTemplate d:DataType="local:RulerModel">
-                                                                                                    <Grid>
-                                                                                                        <Grid.ColumnDefinitions>
-                                                                                                            <ColumnDefinition Width="68"/>
-                                                                                                            <ColumnDefinition Width="*"/>
-                                                                                                        </Grid.ColumnDefinitions>
-                                                                                                        <Grid.RowDefinitions>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                            <RowDefinition Height="Auto"/>
-                                                                                                        </Grid.RowDefinitions>
+                                                                                                    <StackPanel>
+                                                                                                        <!-- 基本信息 -->
+                                                                                                        <Grid>
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="68"/>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <TextBlock Grid.Column="0" Text="名称" Style="{StaticResource FormLabel}"/>
+                                                                                                            <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                        </Grid>
+                                                                                                        <Grid Margin="0,10,0,0">
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="68"/>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <TextBlock Grid.Column="0" Text="规则类型" Style="{StaticResource FormLabel}"/>
+                                                                                                            <ComboBox Grid.Column="1" SelectedValue="{Binding RulerType}" ItemsSource="{Binding RulerTypeValues}">
+                                                                                                                <ComboBox.ItemTemplate>
+                                                                                                                    <DataTemplate>
+                                                                                                                        <TextBlock Text="{Binding Converter={local:EnumDescriptionConverter}}"/>
+                                                                                                                    </DataTemplate>
+                                                                                                                </ComboBox.ItemTemplate>
+                                                                                                            </ComboBox>
+                                                                                                        </Grid>
 
-                                                                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="名称" Style="{StaticResource FormLabel}"/>
-                                                                                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                        <!-- 输入来源与读取框（伺服流量泵） -->
+                                                                                                        <Border Margin="0,14,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
+                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
+                                                                                                            <StackPanel>
+                                                                                                                <TextBlock Text="输入来源与读取" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                                                                                                <Grid>
+                                                                                                                    <Grid.ColumnDefinitions>
+                                                                                                                        <ColumnDefinition Width="68"/>
+                                                                                                                        <ColumnDefinition Width="*"/>
+                                                                                                                    </Grid.ColumnDefinitions>
+                                                                                                                    <Grid.RowDefinitions>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                    </Grid.RowDefinitions>
+                                                                                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="输入来源" Style="{StaticResource FormLabel}"/>
+                                                                                                                    <ComboBox Grid.Row="0" Grid.Column="1" SelectedValue="{Binding PumpInputSource}" ItemsSource="{Binding PumpInputSourceValues}"
+                                                                                                                              ToolTip="从本站或其它网络的从站读取指令值">
+                                                                                                                        <ComboBox.ItemTemplate>
+                                                                                                                            <DataTemplate>
+                                                                                                                                <TextBlock Text="{Binding Converter={local:EnumDescriptionConverter}}"/>
+                                                                                                                            </DataTemplate>
+                                                                                                                        </ComboBox.ItemTemplate>
+                                                                                                                    </ComboBox>
+                                                                                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="输入网络" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                              ItemsSource="{Binding NetworkOptions}" DisplayMemberPath="Name"
+                                                                                                                              SelectedItem="{Binding SelectedInputNetworkOption, Mode=TwoWay}"
+                                                                                                                              IsEnabled="{Binding CanEditInputStation}"
+                                                                                                                              ToolTip="按网络公开 GUID 选择输入源所在网络"/>
+                                                                                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="输入从站" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                              ItemsSource="{Binding InputStations}" DisplayMemberPath="DisplayName"
+                                                                                                                              SelectedItem="{Binding SelectedInputStationOption, Mode=TwoWay}"
+                                                                                                                              IsEnabled="{Binding CanEditInputStation}"
+                                                                                                                              ToolTip="按站点公开 GUID 选择输入源从站；字节序跟随输入源"/>
+                                                                                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="输入区" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding InputRegisterType}" ItemsSource="{Binding RegisterTypeValues}"
+                                                                                                                              ToolTip="读取输入寄存器的区域：只读区/读写区"/>
+                                                                                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="输入类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding InputDataType}" ItemsSource="{Binding DataTypeValues}" Margin="0,10,0,0"/>
+                                                                                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="输入地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <UniformGrid Rows="1" Grid.Row="5" Grid.Column="1" Margin="0,10,0,0">
+                                                                                                                        <DockPanel>
+                                                                                                                            <TextBlock Text="(D)" VerticalAlignment="Center"/>
+                                                                                                                            <TextBox Text="{Binding InputAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                                        </DockPanel>
+                                                                                                                        <DockPanel>
+                                                                                                                            <TextBlock Text="(H)" VerticalAlignment="Center"/>
+                                                                                                                            <TextBox Text="{Binding InputAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
+                                                                                                                        </DockPanel>
+                                                                                                                    </UniformGrid>
+                                                                                                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="读取缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding InputScale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="输入值 = 原始值 × 读取缩放 + 读取偏置"/>
+                                                                                                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="读取偏置" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding InputOffset, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="输入值 = 原始值 × 读取缩放 + 读取偏置"/>
+                                                                                                                </Grid>
+                                                                                                            </StackPanel>
+                                                                                                        </Border>
 
-                                                                                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="寄存器类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <ComboBox Grid.Row="1" Grid.Column="1" SelectedValue="{Binding RegisterType}" ItemsSource="{Binding RegisterTypeValues}" Margin="0,10,0,0"/>
-                                                                                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="数据类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <ComboBox Grid.Row="2" Grid.Column="1" SelectedValue="{Binding DataType}" ItemsSource="{Binding DataTypeValues}" Margin="0,10,0,0"/>
+                                                                                                        <!-- 值拷贝参数（仅值拷贝显示）：源参数框 + 目标参数框 -->
+                                                                                                        <StackPanel Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ValueCopy}">
+                                                                                                            <!-- 源参数框 -->
+                                                                                                            <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
+                                                                                                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                                                                                                <StackPanel>
+                                                                                                                    <TextBlock Text="源参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                                                                                                    <Grid>
+                                                                                                                        <Grid.ColumnDefinitions>
+                                                                                                                            <ColumnDefinition Width="68"/>
+                                                                                                                            <ColumnDefinition Width="*"/>
+                                                                                                                        </Grid.ColumnDefinitions>
+                                                                                                                        <Grid.RowDefinitions>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/>
+                                                                                                                        </Grid.RowDefinitions>
+                                                                                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="源位置" Style="{StaticResource FormLabel}"/>
+                                                                                                                        <ComboBox Grid.Row="0" Grid.Column="1" SelectedValue="{Binding PumpInputSource}" ItemsSource="{Binding PumpInputSourceValues}"
+                                                                                                                                  ToolTip="从本站或其它网络的从站读取要拷贝的数据">
+                                                                                                                            <ComboBox.ItemTemplate>
+                                                                                                                                <DataTemplate>
+                                                                                                                                    <TextBlock Text="{Binding Converter={local:EnumDescriptionConverter}}"/>
+                                                                                                                                </DataTemplate>
+                                                                                                                            </ComboBox.ItemTemplate>
+                                                                                                                        </ComboBox>
+                                                                                                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="源网络" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                                  ItemsSource="{Binding NetworkOptions}" DisplayMemberPath="Name"
+                                                                                                                                  SelectedItem="{Binding SelectedInputNetworkOption, Mode=TwoWay}"
+                                                                                                                                  IsEnabled="{Binding CanEditInputStation}"
+                                                                                                                                  ToolTip="按网络公开 GUID 选择来源网络"/>
+                                                                                                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="源从站" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                                  ItemsSource="{Binding InputStations}" DisplayMemberPath="DisplayName"
+                                                                                                                                  SelectedItem="{Binding SelectedInputStationOption, Mode=TwoWay}"
+                                                                                                                                  IsEnabled="{Binding CanEditInputStation}"
+                                                                                                                                  ToolTip="按站点公开 GUID 选择来源从站"/>
+                                                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="源区" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding InputRegisterType}" ItemsSource="{Binding RegisterTypeValues}"/>
+                                                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="源类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding InputDataType}" ItemsSource="{Binding DataTypeValues}"/>
+                                                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="源地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <UniformGrid Rows="1" Grid.Row="5" Grid.Column="1" Margin="0,10,0,0">
+                                                                                                                            <DockPanel>
+                                                                                                                                <TextBlock Text="(D)" VerticalAlignment="Center"/>
+                                                                                                                                <TextBox Text="{Binding InputAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                                            </DockPanel>
+                                                                                                                            <DockPanel>
+                                                                                                                                <TextBlock Text="(H)" VerticalAlignment="Center"/>
+                                                                                                                                <TextBox Text="{Binding InputAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
+                                                                                                                            </DockPanel>
+                                                                                                                        </UniformGrid>
+                                                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="源数量" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding SourceLength, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                                 ToolTip="源地址数量：1=点对点/一对多；>1=多对多（目标数量不生效）"/>
+                                                                                                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="源缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding CopySourceScale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                                 ToolTip="源值 = 原始值 × 源缩放 + 源偏置；字节序跟随来源从站"/>
+                                                                                                                    </Grid>
+                                                                                                                    <Grid Margin="0,10,0,0">
+                                                                                                                        <Grid.ColumnDefinitions>
+                                                                                                                            <ColumnDefinition Width="68"/>
+                                                                                                                            <ColumnDefinition Width="*"/>
+                                                                                                                        </Grid.ColumnDefinitions>
+                                                                                                                        <TextBlock Grid.Column="0" Text="源偏置" Style="{StaticResource FormLabel}"/>
+                                                                                                                        <TextBox Grid.Column="1" Text="{Binding CopySourceOffset, UpdateSourceTrigger=PropertyChanged}"
+                                                                                                                                 ToolTip="源值 = 原始值 × 源缩放 + 源偏置"/>
+                                                                                                                    </Grid>
+                                                                                                                </StackPanel>
+                                                                                                            </Border>
 
-                                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="起始地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <UniformGrid Rows="1" Grid.Row="3" Grid.Column="1"  Margin="0,10,0,0">
-                                                                                                            <DockPanel>
-                                                                                                                <TextBlock Text="(D)" VerticalAlignment="Center"/>
-                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}"/>
-                                                                                                            </DockPanel>
-                                                                                                            <DockPanel>
-                                                                                                                <TextBlock Text="(H)" VerticalAlignment="Center"/>
-                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
-                                                                                                            </DockPanel>
-                                                                                                        </UniformGrid>
-                                                                                                        
-                                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="数量" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+                                                                                                            <!-- 目标参数框 -->
+                                                                                                            <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
+                                                                                                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                                                                                                <StackPanel>
+                                                                                                                    <TextBlock Text="目标参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                                                                                                    <Grid>
+                                                                                                                        <Grid.ColumnDefinitions>
+                                                                                                                            <ColumnDefinition Width="68"/>
+                                                                                                                            <ColumnDefinition Width="*"/>
+                                                                                                                        </Grid.ColumnDefinitions>
+                                                                                                                        <Grid.RowDefinitions>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                            <RowDefinition Height="Auto"/>
+                                                                                                                        </Grid.RowDefinitions>
+                                                                                                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="目标位置" Style="{StaticResource FormLabel}"/>
+                                                                                                                        <ComboBox Grid.Row="0" Grid.Column="1" SelectedValue="{Binding PumpOutputTarget}" ItemsSource="{Binding PumpOutputTargetValues}"
+                                                                                                                                  ToolTip="不写输出=不拷贝；本站/其它从站">
+                                                                                                                            <ComboBox.ItemTemplate>
+                                                                                                                                <DataTemplate>
+                                                                                                                                    <TextBlock Text="{Binding Converter={local:EnumDescriptionConverter}}"/>
+                                                                                                                                </DataTemplate>
+                                                                                                                            </ComboBox.ItemTemplate>
+                                                                                                                        </ComboBox>
+                                                                                                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="目标网络" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                                  ItemsSource="{Binding NetworkOptions}" DisplayMemberPath="Name"
+                                                                                                                                  SelectedItem="{Binding SelectedNetworkOption, Mode=TwoWay}"
+                                                                                                                                  IsEnabled="{Binding CanEditTargetStation}"
+                                                                                                                                  ToolTip="按网络公开 GUID 选择目标网络"/>
+                                                                                                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="目标从站" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                                  ItemsSource="{Binding TargetStations}" DisplayMemberPath="DisplayName"
+                                                                                                                                  SelectedItem="{Binding SelectedStationOption, Mode=TwoWay}"
+                                                                                                                                  IsEnabled="{Binding CanEditTargetStation}"
+                                                                                                                                  ToolTip="按站点公开 GUID 选择目标从站"/>
+                                                                                                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="目标区" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding RegisterType}" ItemsSource="{Binding RegisterTypeValues}"
+                                                                                                                                  IsEnabled="{Binding CanEditOutputParams}"/>
+                                                                                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="目标类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding DataType}" ItemsSource="{Binding DataTypeValues}"
+                                                                                                                                  IsEnabled="{Binding CanEditOutputParams}"/>
+                                                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="目标地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <UniformGrid Rows="1" Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" IsEnabled="{Binding CanEditOutputParams}">
+                                                                                                                            <DockPanel>
+                                                                                                                                <TextBlock Text="(D)" VerticalAlignment="Center"/>
+                                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                                            </DockPanel>
+                                                                                                                            <DockPanel>
+                                                                                                                                <TextBlock Text="(H)" VerticalAlignment="Center"/>
+                                                                                                                                <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
+                                                                                                                            </DockPanel>
+                                                                                                                        </UniformGrid>
+                                                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="目标数量" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                                 IsEnabled="{Binding CanEditCopyTargetLength}"
+                                                                                                                                 ToolTip="源数量=1时：0=不拷贝、1=点对点、>1=连续写多个相同值；源数量>1时不生效"/>
+                                                                                                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="目标缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding CopyTargetScale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                                 ToolTip="目标值 = 源值 × 目标缩放 + 目标偏置；字节序跟随目标从站"/>
+                                                                                                                    </Grid>
+                                                                                                                    <Grid Margin="0,10,0,0">
+                                                                                                                        <Grid.ColumnDefinitions>
+                                                                                                                            <ColumnDefinition Width="68"/>
+                                                                                                                            <ColumnDefinition Width="*"/>
+                                                                                                                        </Grid.ColumnDefinitions>
+                                                                                                                        <TextBlock Grid.Column="0" Text="目标偏置" Style="{StaticResource FormLabel}"/>
+                                                                                                                        <TextBox Grid.Column="1" Text="{Binding CopyTargetOffset, UpdateSourceTrigger=PropertyChanged}"
+                                                                                                                                 ToolTip="目标值 = 源值 × 目标缩放 + 目标偏置"/>
+                                                                                                                    </Grid>
+                                                                                                                </StackPanel>
+                                                                                                            </Border>
 
-                                                                                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Scale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
-                                                                                                                 ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"/>
+                                                                                                            <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" HorizontalAlignment="Left" TextAlignment="Left" Margin="0,10,0,0"
+                                                                                                                       Text="源数量=1：目标数量 0=不拷贝、1=点对点、>1=把源值连续写多个。源数量>1：目标数量不生效，按源数量多对多拷贝。选择其它网络从站时，字节序跟随该从站自身设置。"/>
+                                                                                                        </StackPanel>
 
-                                                                                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="偏置" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Offset, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
-                                                                                                                 ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"/>
+                                                                                                        <!-- 输出参数与目标框（值拷贝使用独立的值拷贝参数框） -->
+                                                                                                        <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
+                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=!ValueCopy}">
+                                                                                                            <StackPanel>
+                                                                                                                <TextBlock Text="输出参数与目标" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                                                                                                <Grid>
+                                                                                                                    <Grid.ColumnDefinitions>
+                                                                                                                        <ColumnDefinition Width="68"/>
+                                                                                                                        <ColumnDefinition Width="*"/>
+                                                                                                                    </Grid.ColumnDefinitions>
+                                                                                                                    <Grid.RowDefinitions>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/>
+                                                                                                                    </Grid.RowDefinitions>
 
-                                                                                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"/>
+                                                                                                                    <!-- 输出目标（生成随机数/伺服流量泵） -->
+                                                                                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="输出目标" Style="{StaticResource FormLabel}"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"/>
+                                                                                                                    <ComboBox Grid.Row="0" Grid.Column="1" SelectedValue="{Binding PumpOutputTarget}" ItemsSource="{Binding PumpOutputTargetValues}"
+                                                                                                                              Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}">
+                                                                                                                        <ComboBox.ItemTemplate>
+                                                                                                                            <DataTemplate>
+                                                                                                                                <TextBlock Text="{Binding Converter={local:EnumDescriptionConverter}}"/>
+                                                                                                                            </DataTemplate>
+                                                                                                                        </ComboBox.ItemTemplate>
+                                                                                                                    </ComboBox>
 
-                                                                                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="写入次数" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
-                                                                                                        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Tick}" IsReadOnly="True" Margin="0,10,0,0"/>
-                                                                                                    </Grid>
+                                                                                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="目标网络" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"/>
+                                                                                                                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                              ItemsSource="{Binding NetworkOptions}"
+                                                                                                                              DisplayMemberPath="Name"
+                                                                                                                              SelectedItem="{Binding SelectedNetworkOption, Mode=TwoWay}"
+                                                                                                                              IsEnabled="{Binding CanEditTargetStation}"
+                                                                                                                              Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"
+                                                                                                                              ToolTip="按网络公开 GUID 选择输出目标所在网络；仅『其它网络的从站』可编辑"/>
+
+                                                                                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="目标从站" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"/>
+                                                                                                                    <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,10,0,0"
+                                                                                                                              ItemsSource="{Binding TargetStations}"
+                                                                                                                              DisplayMemberPath="DisplayName"
+                                                                                                                              SelectedItem="{Binding SelectedStationOption, Mode=TwoWay}"
+                                                                                                                              IsEnabled="{Binding CanEditTargetStation}"
+                                                                                                                              Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"
+                                                                                                                              ToolTip="按站点公开 GUID 选择输出目标从站；字节序跟随目标从站设置；仅『其它网络的从站』可编辑"/>
+
+                                                                                                                    <!-- 输出寄存器参数 -->
+                                                                                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="寄存器类型" Style="{StaticResource FormLabel}" Margin="0,12,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,12,0,0" SelectedValue="{Binding RegisterType}" ItemsSource="{Binding RegisterTypeValues}" IsEnabled="{Binding CanEditOutputParams}"/>
+                                                                                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="数据类型" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" SelectedValue="{Binding DataType}" ItemsSource="{Binding DataTypeValues}" IsEnabled="{Binding CanEditOutputParams}"/>
+                                                                                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="输出地址" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <UniformGrid Rows="1" Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" IsEnabled="{Binding CanEditOutputParams}">
+                                                                                                                        <DockPanel>
+                                                                                                                            <TextBlock Text="(D)" VerticalAlignment="Center"/>
+                                                                                                                            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                                        </DockPanel>
+                                                                                                                        <DockPanel>
+                                                                                                                            <TextBlock Text="(H)" VerticalAlignment="Center"/>
+                                                                                                                            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged,Converter={local:HexStringToIntConverter}}"/>
+                                                                                                                        </DockPanel>
+                                                                                                                    </UniformGrid>
+                                                                                                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=Random}"/>
+                                                                                                                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Scale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"
+                                                                                                                             Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=Random}"/>
+                                                                                                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="偏置" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=Random}"/>
+                                                                                                                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Offset, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="随机值 = 随机数(0~1) × 缩放 + 偏置"
+                                                                                                                             Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=Random}"/>
+                                                                                                                    <TextBlock Grid.Row="8" Grid.Column="0" Text="数量" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"/>
+                                                                                                                    <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Length, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="每次生成/写入的寄存器个数（1~2000），从起始地址开始连续写入"
+                                                                                                                             IsEnabled="{Binding CanEditOutputParams}"
+                                                                                                                             Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter='Random,ServoFlowPump'}"/>
+
+                                                                                                                    <!-- 伺服流量泵：目标缩放/偏置置于框底部 -->
+                                                                                                                    <TextBlock Grid.Row="9" Grid.Column="0" Text="目标缩放" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}"/>
+                                                                                                                    <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding OutputScale, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="写入目标值 = 计算结果 × 目标缩放 + 目标偏置"
+                                                                                                                             IsEnabled="{Binding CanEditOutputParams}"
+                                                                                                                             Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}"/>
+                                                                                                                    <TextBlock Grid.Row="10" Grid.Column="0" Text="目标偏置" Style="{StaticResource FormLabel}" Margin="0,10,10,0"
+                                                                                                                               Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}"/>
+                                                                                                                    <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding OutputOffset, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0"
+                                                                                                                             ToolTip="写入目标值 = 计算结果 × 目标缩放 + 目标偏置"
+                                                                                                                             IsEnabled="{Binding CanEditOutputParams}"
+                                                                                                                             Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}"/>
+                                                                                                                </Grid>
+                                                                                                            </StackPanel>
+                                                                                                        </Border>
+
+                                                                                                        <!-- 水泵流量计参数框（伺服流量泵） -->
+                                                                                                        <Border Margin="0,12,0,0" CornerRadius="8" Padding="12" Background="{StaticResource SurfaceAltBrush}"
+                                                                                                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                                                                                                Visibility="{Binding RulerType, Converter={local:RulerTypeVisibilityConverter}, ConverterParameter=ServoFlowPump}">
+                                                                                                            <StackPanel>
+                                                                                                                <TextBlock Text="水泵流量计参数" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
+                                                                                                                <Grid>
+                                                                                                                    <Grid.ColumnDefinitions>
+                                                                                                                        <ColumnDefinition Width="68"/>
+                                                                                                                        <ColumnDefinition Width="*"/>
+                                                                                                                    </Grid.ColumnDefinitions>
+                                                                                                                    <Grid.RowDefinitions>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                                                                                    </Grid.RowDefinitions>
+                                                                                                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="指令下限" Style="{StaticResource FormLabel}"/>
+                                                                                                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CommandLow, UpdateSourceTrigger=PropertyChanged}" ToolTip="输入量程下限，默认 -3000"/>
+                                                                                                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="指令上限" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CommandHigh, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0" ToolTip="输入量程上限，默认 3000"/>
+                                                                                                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="输出下限" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding OutputLow, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0" ToolTip="输出量程下限，默认 -10；单向泵改为 0"/>
+                                                                                                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="输出上限" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OutputHigh, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0" ToolTip="输出量程上限，默认 10"/>
+                                                                                                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="时间常数τ" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding TimeConstant, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0" ToolTip="一阶惯性时间常数（秒），默认 0.45；≤0 表示不滤波"/>
+                                                                                                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="滞后时间Td" Style="{StaticResource FormLabel}" Margin="0,10,10,0"/>
+                                                                                                                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LagTime, UpdateSourceTrigger=PropertyChanged}" Margin="0,10,0,0" ToolTip="纯滞后时间（秒），可填小数如 0.01；0 表示不启用"/>
+                                                                                                                </Grid>
+                                                                                                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" HorizontalAlignment="Left" TextAlignment="Left" Margin="0,10,0,0"
+                                                                                                                           Text="默认 -3000~-10、3000~10 对应原方法；单向泵可改 0~3000 与 0~10。滞后单位秒，填 0 不启用；每 10ms 运算一次并放入历史下标 0，滞后 0.01s 取下标 1、1s 取下标 100，历史不足时读数为 0。"/>
+                                                                                                            </StackPanel>
+                                                                                                        </Border>
+
+                                                                                                        <Grid Margin="0,12,0,0">
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="68"/>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <TextBlock Grid.Column="0" Text="备注" Style="{StaticResource FormLabel}"/>
+                                                                                                            <TextBox Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                                                        </Grid>
+                                                                                                        <Grid Margin="0,10,0,0">
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="68"/>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <TextBlock Grid.Column="0" Text="写入次数" Style="{StaticResource FormLabel}"/>
+                                                                                                            <TextBox Grid.Column="1" Text="{Binding Tick, Mode=OneWay}" IsReadOnly="True"/>
+                                                                                                        </Grid>
+                                                                                                    </StackPanel>
                                                                                                 </DataTemplate>
                                                                                             </ContentControl.ContentTemplate>
                                                                                         </ContentControl>

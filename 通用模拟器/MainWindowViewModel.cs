@@ -16,6 +16,8 @@ namespace 通用模拟器
     public partial class MainWindowViewModel:ObservableObject,IDisposable
     {
         [ObservableProperty] BindingList<NetworkConfigModel> networkList = new();
+        [ObservableProperty] BindingList<NetworkTargetOption> networkTargets = new();
+        [ObservableProperty] BindingList<StationTargetOption> stationTargets = new();
         [ObservableProperty] NetworkConfigModel? selectedNetwork;
         /// <summary>参数名称：仅在停止状态可由用户设定，导出时作为默认文件名</summary>
         [ObservableProperty] string configName = DefaultConfigName;
@@ -68,6 +70,8 @@ namespace 通用模拟器
                 foreach (var item in NetworkList) item.Dispose();
                 NetworkList.Clear();
                 foreach (var item in list) NetworkList.Add(item);
+                EnsureIds();
+                RefreshStationTargets();
                 if (!string.IsNullOrWhiteSpace(file.Name)) ConfigName = file.Name;
 
                 SelectedNetwork = NetworkList.FirstOrDefault();
@@ -162,10 +166,14 @@ namespace 通用模拟器
 
         const string TimeFormat = "yyyy-MM-dd HH:mm:ss";
         readonly DispatcherTimer clockTimer;
+        /// <summary>Tick 显示刷新：后台高频计数不通知，改由低频 UI 定时器批量刷新，避免跨线程通知风暴</summary>
+        readonly DispatcherTimer tickRefreshTimer;
+        static readonly TimeSpan TickRefreshInterval = TimeSpan.FromMilliseconds(100);
 
         public void Dispose()
         {
             clockTimer.Stop();
+            tickRefreshTimer.Stop();
             var source = cts;
             cts = null;
             if (source is null) return;
@@ -179,13 +187,57 @@ namespace 通用模拟器
         public MainWindowViewModel()
         {
             LoadSetting();//加载配置
+            EnsureIds();
+            RefreshStationTargets();
+            // 规则按稳定 ID 解析目标从站（运行期对象不入配置）
+            //用 for 循环替代嵌套 FirstOrDefault(lambda)，避免每次解析分配闭包
+            RuleRuntime.ResolveSlave = (networkId, stationId) =>
+            {
+                for (int i = 0; i < NetworkList.Count; i++)
+                {
+                    var network = NetworkList[i];
+                    if (network.Id != networkId) continue;
+                    for (int j = 0; j < network.StationList.Count; j++)
+                    {
+                        var station = network.StationList[j];
+                        if (station.Id == stationId) return station.Slave;
+                    }
+                    return null;
+                }
+                return null;
+            };
             // BindingList 增删项不会触发 Count 相关绑定刷新，这里手动通知
-            NetworkList.ListChanged += (_, __) => OnPropertyChanged(nameof(NetworkList));
+            NetworkList.ListChanged += (_, __) =>
+            {
+                OnPropertyChanged(nameof(NetworkList));
+                RefreshStationTargets();
+            };
+            NetworkConfigModel.StationsChanged += (_, __) => RefreshStationTargets();
 
             // 状态栏时钟：每秒刷新（DispatcherTimer 在 UI 线程触发，可直接改绑定源）
             clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             clockTimer.Tick += (_, __) => CurrentTimeText = DateTime.Now.ToString(TimeFormat);
             clockTimer.Start();
+
+            // Tick 显示低频批量刷新：把原本每周期数万次跨线程 PropertyChanged 降为每 500ms 一次
+            tickRefreshTimer = new DispatcherTimer { Interval = TickRefreshInterval };
+            tickRefreshTimer.Tick += (_, __) => RefreshTickDisplay();
+            tickRefreshTimer.Start();
+        }
+
+        /// <summary>在 UI 线程批量通知各层 Tick 刷新显示（仅运行时有意义，停止时数据不变也无害）</summary>
+        void RefreshTickDisplay()
+        {
+            foreach (var network in NetworkList)
+            {
+                network.NotifyTickChanged();
+                foreach (var station in network.StationList)
+                {
+                    station.NotifyTickChanged();
+                    foreach (var ruler in station.RulerList)
+                        ruler.NotifyTickChanged();
+                }
+            }
         }
 
         [RelayCommand]
@@ -327,6 +379,77 @@ namespace 通用模拟器
             {
                 MessageBox.Show(ex.Message, "错误");
             }
+        }
+
+        /// <summary>旧配置补齐稳定 ID，保证规则跨网络引用可用</summary>
+        void EnsureIds()
+        {
+            foreach (var network in NetworkList)
+            {
+                if (network.Id == Guid.Empty) network.Id = Guid.NewGuid();
+                foreach (var station in network.StationList)
+                {
+                    if (station.Id == Guid.Empty) station.Id = Guid.NewGuid();
+                }
+            }
+        }
+
+        /// <summary>刷新所有站点下拉选项（供伺服流量泵选择输出目标）</summary>
+        public void RefreshStationTargets()
+        {
+            var networks = RuleRuntime.Networks;
+            var stations = RuleRuntime.Stations;
+
+            // 原地更新选项对象，保持引用稳定，避免 SelectedItem 因对象重建而丢失
+            var networkIds = new HashSet<Guid>();
+            foreach (var network in NetworkList)
+            {
+                networkIds.Add(network.Id);
+                var opt = networks.FirstOrDefault(o => o.Id == network.Id);
+                if (opt is null) networks.Add(new NetworkTargetOption { Id = network.Id, Name = network.Name });
+                else opt.Name = network.Name;
+            }
+            for (int i = networks.Count - 1; i >= 0; i--)
+                if (!networkIds.Contains(networks[i].Id)) networks.RemoveAt(i);
+
+            var stationIds = new HashSet<Guid>();
+            foreach (var network in NetworkList)
+            {
+                foreach (var station in network.StationList)
+                {
+                    stationIds.Add(station.Id);
+                    var opt = stations.FirstOrDefault(o => o.StationId == station.Id);
+                    var display = $"{station.StationNo} ({station.Name})";
+                    if (opt is null)
+                    {
+                        stations.Add(new StationTargetOption
+                        {
+                            NetworkId = network.Id, StationId = station.Id,
+                            NetworkName = network.Name, StationNo = station.StationNo,
+                            StationName = station.Name, DisplayName = display
+                        });
+                    }
+                    else
+                    {
+                        opt.NetworkId = network.Id;
+                        opt.NetworkName = network.Name;
+                        opt.StationNo = station.StationNo;
+                        opt.StationName = station.Name;
+                        opt.DisplayName = display;
+                    }
+                }
+            }
+            for (int i = stations.Count - 1; i >= 0; i--)
+                if (!stationIds.Contains(stations[i].StationId)) stations.RemoveAt(i);
+
+            NetworkTargets = new BindingList<NetworkTargetOption>(networks);
+            StationTargets = new BindingList<StationTargetOption>(stations);
+
+            // 配置加载/列表变化后，按 Guid 重新关联下拉选择
+            foreach (var network in NetworkList)
+                foreach (var station in network.StationList)
+                    foreach (var ruler in station.RulerList)
+                        ruler.SyncTargetOptions();
         }
 
     }
