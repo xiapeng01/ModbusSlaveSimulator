@@ -27,23 +27,30 @@ namespace 通用模拟器
         [Description("其它网络的从站")] OtherStation = 2
     }
 
-    /// <summary>伺服流量泵规则的输入来源（默认本站，兼容旧配置）</summary>
+    /// <summary>伺服流量泵/值拷贝规则的输入来源（默认本站，兼容旧配置）</summary>
     public enum EnumPumpInputSource
     {
         [Description("本站")] ThisStation = 0,
-        [Description("其它网络的从站")] OtherStation = 1
+        [Description("其它网络的从站")] OtherStation = 1,
+        /// <summary>值拷贝专用：源为一个固定字符串，按目标数据类型解析</summary>
+        [Description("固定值")] FixedValue = 2
     }
 
-    /// <summary>枚举显示名：读取 DescriptionAttribute，便于在 ComboBox 中显示中文。</summary>
+    /// <summary>枚举显示名：读取 DescriptionAttribute，便于在 ComboBox 中显示中文。反射结果缓存。</summary>
     public class EnumDescriptionConverter : ConverterBase
     {
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<Enum, string> cache = new();
+
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Enum e)
             {
+                if (cache.TryGetValue(e, out var desc)) return desc;
                 var field = e.GetType().GetField(e.ToString());
                 var attr = field?.GetCustomAttribute<DescriptionAttribute>();
-                if (attr is not null) return attr.Description;
+                var result = attr?.Description ?? e.ToString();
+                cache[e] = result;
+                return result;
             }
             return value?.ToString() ?? string.Empty;
         }
@@ -52,18 +59,34 @@ namespace 通用模拟器
             => DependencyProperty.UnsetValue;
     }
 
-    /// <summary>按规则类型控制控件显隐：ConverterParameter 传枚举名，前缀 ! 表示取反</summary>
+    /// <summary>按规则类型控制控件显隐：ConverterParameter 传枚举名，前缀 ! 表示取反。参数解析缓存。</summary>
     public class RulerTypeVisibilityConverter : ConverterBase
     {
+        sealed class Spec
+        {
+            public bool Invert;
+            public string[] Types = Array.Empty<string>();
+        }
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Spec> specCache = new();
+
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            string? p = parameter?.ToString();
-            bool invert = p?.StartsWith("!") == true;
-            string spec = p?.TrimStart('!') ?? "";
-            //支持逗号分隔的多个类型，如 "ServoFlowPump,ValueCopy"
-            bool match = spec.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Any(t => string.Equals(t.Trim(), value?.ToString(), StringComparison.OrdinalIgnoreCase));
-            return (match ^ invert) ? Visibility.Visible : Visibility.Collapsed;
+            var p = parameter?.ToString() ?? "";
+            var spec = specCache.GetOrAdd(p, key =>
+            {
+                bool invert = key.StartsWith("!");
+                var specText = key.TrimStart('!');
+                //支持逗号分隔的多个类型，如 "ServoFlowPump,ValueCopy"
+                return new Spec
+                {
+                    Invert = invert,
+                    Types = specText.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => t.Trim()).ToArray()
+                };
+            });
+            var valueText = value?.ToString();
+            bool match = spec.Types.Any(t => string.Equals(t, valueText, StringComparison.OrdinalIgnoreCase));
+            return (match ^ spec.Invert) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public override object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -96,7 +119,7 @@ namespace 通用模拟器
             if (values[1] is Guid g) networkId = g;
             else if (values[1] is string s && Guid.TryParse(s, out var parsed)) networkId = parsed;
             else return result;
-            result.AddRange(all.Where(x => x.NetworkId == networkId));
+            result.AddRange(all.ToArray().Where(x => x.NetworkId == networkId));
             return result;
         }
 

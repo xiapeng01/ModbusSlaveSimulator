@@ -10,10 +10,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Ports;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -51,8 +53,9 @@ namespace 通用模拟器
         //静态缓存：下拉选项只读，避免 UI 每次重求值都分配数组
         static readonly int[] intervalValues = { 10, 20, 30, 50, 60, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1500, 2000, 3000, 5000 };
         static readonly EnumProtocolType[] protocolTypeValues = Enum.GetValues<EnumProtocolType>();
-        public int[] IntervalValues => intervalValues;
-        public EnumProtocolType[] ProtocolTypeValues => protocolTypeValues;
+        // 只读下拉选项不参与序列化：旧版导出文件含这些字段，反序列化会尝试向固定大小数组填充而抛异常
+        [JsonIgnore] public int[] IntervalValues => intervalValues;
+        [JsonIgnore] public EnumProtocolType[] ProtocolTypeValues => protocolTypeValues;
         /// <summary>串口号列表（支持运行期刷新，见 RefreshPortNames）</summary>
         [JsonIgnore] public ObservableCollection<string> PortNameValues { get; } = new ObservableCollection<string>(SerialPort.GetPortNames());
 
@@ -60,10 +63,9 @@ namespace 通用模拟器
         public void RefreshPortNames()
         {
             var names = SerialPort.GetPortNames();
-            for (int i = PortNameValues.Count - 1; i >= 0; i--)
-            {
-                if (!names.Contains(PortNameValues[i])) PortNameValues.RemoveAt(i);
-            }
+            // 先算待删除项快照再删，避免索引访问与集合修改交错导致越界
+            foreach (var name in PortNameValues.Where(n => !names.Contains(n)).ToArray())
+                PortNameValues.Remove(name);
             foreach (var name in names)
             {
                 if (!PortNameValues.Contains(name)) PortNameValues.Add(name);
@@ -73,10 +75,10 @@ namespace 通用模拟器
         static readonly int[] dataBitsValues = { 5, 6, 7, 8 };
         static readonly Parity[] parityValues = Enum.GetValues<Parity>();
         static readonly StopBits[] stopBitsValues = Enum.GetValues<StopBits>();
-        public int[] BaudRateValues => baudRateValues;
-        public int[] DataBitsValues => dataBitsValues;
-        public Parity[] ParityValues => parityValues;
-        public StopBits[] StopBitsValues => stopBitsValues;
+        [JsonIgnore] public int[] BaudRateValues => baudRateValues;
+        [JsonIgnore] public int[] DataBitsValues => dataBitsValues;
+        [JsonIgnore] public Parity[] ParityValues => parityValues;
+        [JsonIgnore] public StopBits[] StopBitsValues => stopBitsValues;
 
         /// <summary>串口链路（ModbusRtu）：显示串口号、波特率、数据位、校验位、停止位</summary>
         [JsonIgnore]
@@ -124,6 +126,8 @@ namespace 通用模拟器
         [JsonIgnore] readonly object networkLock = new object();
         /// <summary>创建失败后的重试时间点（退避），避免按刷新间隔反复尝试</summary>
         [JsonIgnore] DateTime nextRetryTime = DateTime.MinValue;
+        /// <summary>从站监听是否存活；onError 触发后置 false，由 GetOrCreateNetwork 检测并重建</summary>
+        [JsonIgnore] volatile bool listenerAlive = true;
         /// <summary>LastError 是否为“网络级”错误（不会被下一周期自动清除）</summary>
         bool lastErrorSticky;
         /// <summary>复用的站号计数表（单网络循环内独占，Clear 后重用，避免每周期分配）</summary>
@@ -162,7 +166,7 @@ namespace 通用模拟器
 
         [JsonIgnore] public IModbusSlaveNetwork? SlaveNetwork;
         [property: JsonIgnore]
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
         void AddStation()
         {
             StationInformationModel station = new StationInformationModel();
@@ -175,7 +179,7 @@ namespace 通用模拟器
         }
 
         [property: JsonIgnore]
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
         void RemoveStation(StationInformationModel? station)
         {
             if (station is null) return;
@@ -205,6 +209,44 @@ namespace 通用模拟器
             SelectedStation = copy;
         }
 
+        /// <summary>复制站点到内存剪贴板：不修改原对象与列表，仅停止状态可用</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void CopyStation(StationInformationModel? station)
+        {
+            if (station is null) return;
+            ModelClipboard.Copy(station);
+        }
+
+        bool CanPasteStation => CanEdit && ModelClipboard.CanPaste<StationInformationModel>();
+
+        /// <summary>粘贴站点：从快照克隆并分配未占用站号，插入选中项之后</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanPasteStation))]
+        void PasteStation(StationInformationModel? target)
+        {
+            var copy = ModelClipboard.CreatePasteCopy<StationInformationModel>();
+            if (copy is null) return;
+
+            int no = Enumerable.Range(1, 247).FirstOrDefault(n => !StationList.Any(s => s.StationNo == n), 0);
+            if (no == 0)
+            {
+                AppLogger.Warning("站号 1~247 已全部占用，无法粘贴站点。", nameof(PasteStation));
+                MessageBox.Show("站号 1~247 已全部占用，无法粘贴站点。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            copy.StationNo = no;
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int index = target is not null ? StationList.IndexOf(target) : -1;
+            if (index < 0) index = StationList.Count - 1;
+            StationList.Insert(index + 1, copy);
+            SelectedStation = copy;
+        }
+
+        /// <summary>供外部在剪贴板变化时刷新本站点的粘贴命令状态</summary>
+        public void NotifyPasteCommandsChanged() => PasteStationCommand.NotifyCanExecuteChanged();
+
         [property: JsonIgnore]
         [RelayCommand(CanExecute = nameof(CanEdit))]
         void MoveStationUp() => MoveStation(-1);
@@ -218,10 +260,13 @@ namespace 通用模拟器
             var item = SelectedStation;
             if (item is null) return;
             int index = StationList.IndexOf(item);
+            if (index < 0) return;
             int target = index + offset;
-            if (index < 0 || target < 0 || target >= StationList.Count) return;
+            if (target < 0 || target >= StationList.Count) return;
             StationList.RemoveAt(index);
-            StationList.Insert(target, item);
+            target = Math.Clamp(target, 0, StationList.Count);
+            try { StationList.Insert(target, item); }
+            catch { if (!StationList.Contains(item)) StationList.Add(item); }
             SelectedStation = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
         }
 
@@ -231,7 +276,7 @@ namespace 通用模拟器
         public void Dispose()
         {
             isDsiposed = true;
-            foreach (var item in StationList)
+            foreach (var item in StationList.ToArray())
             {
                 item.Dispose();
                 item.CanEdit = true;
@@ -243,6 +288,17 @@ namespace 通用模拟器
                 SlaveNetwork = null;
             }
             CanEdit = true;
+        }
+
+        /// <summary>启动前重置运行期标记，使新一轮可以重建从站网络</summary>
+        public void PrepareForStart()
+        {
+            lock (networkLock)
+            {
+                released = false;
+                nextRetryTime = DateTime.MinValue;
+                listenerAlive = true;
+            }
         }
 
         /// <summary>判断指定网络是否已释放（或已被新网络取代）</summary>
@@ -259,19 +315,33 @@ namespace 通用模拟器
 
         /// <summary>记录错误但不弹窗（后台线程 MessageBox 可能被主窗口遮挡且会按刷新间隔重复弹出）</summary>
         /// <param name="sticky">true 表示网络级错误，不会在下一周期被自动清除</param>
-        void ReportError(string message, bool sticky = false)
+        void ReportError(string message, bool sticky = false, [CallerMemberName] string source = "")
         {
-            Debug.WriteLine(message);
             errorReported = true;
             if (LastError == message) { lastErrorSticky |= sticky; return; }
             LastError = message;
             lastErrorSticky = sticky;
+            AppLogger.Warning(message, source);
         }
 
         /// <summary>创建（或复用）从站网络；失败时记录错误并返回 null</summary>
         /// <remarks>耗时的创建过程放在锁外，避免阻塞 UI 线程上的 Dispose（如 TCP 连接超时）</remarks>
         IModbusSlaveNetwork? GetOrCreateNetwork()
         {
+            // 监听已异常死亡：释放旧对象并置空，触发重建（只在此处释放，onError 回调不碰对象）
+            if (!listenerAlive)
+            {
+                lock (networkLock)
+                {
+                    if (SlaveNetwork is not null)
+                    {
+                        try { SlaveNetwork.Dispose(); } catch { }
+                        SlaveNetwork = null;
+                    }
+                    nextRetryTime = DateTime.Now.AddSeconds(1);
+                }
+            }
+
             lock (networkLock)
             {
                 if (SlaveNetwork is not null) return SlaveNetwork;
@@ -280,23 +350,43 @@ namespace 通用模拟器
             // 退避：创建失败后至少间隔 2 秒再试，避免按刷新间隔（最快 10ms）反复尝试
             if (DateTime.Now < nextRetryTime) return null;
 
+            // 本次要重建：重置存活标记（onError 可能在创建瞬间触发，需先置 true）
+            listenerAlive = true;
+
+            // 监听失败回调：只置标记+记录，重建交给 DoWork 线程，避免回调线程跨线程释放对象
+            void OnListenerError(Exception ex)
+            {
+                // 停止/释放过程中的异常属预期收尾：TCP 的 AcceptTcpClientAsync 被 Dispose 取消、
+                // 串口释放后监听任务访问已释放的 transport（NModbus 内部 NRE）。
+                // 此时 released 已在 Dispose 前置 true，按 released 判断只记普通日志，
+                // 不置死亡标记也不上报错误，避免正常停止时弹出误导性红色报错。
+                if (IsReleased(null))
+                {
+                    AppLogger.Info($"网络「{Name}」停止时监听收尾异常（已忽略）：{ex.GetType().Name}: {ex.Message}",
+                        nameof(GetOrCreateNetwork));
+                    return;
+                }
+                listenerAlive = false;
+                AppLogger.Exception($"网络「{Name}」监听异常终止，将在下一周期重建", ex, nameof(GetOrCreateNetwork));
+                ReportError($"网络「{Name}」监听异常终止：{ex.Message}", sticky: true);
+            }
+
             IModbusSlaveNetwork network;
             try
             {
                 network = ProtocolType switch
                 {
-                    EnumProtocolType.ModbusRtu => Tools.CreateRtuSlaveNetwork(PortName,BaudRate,DataBits,Parity,StopBits),
-                    EnumProtocolType.ModbusTcp => Tools.CreateTcpSlaveNetwork(IP, Port),
-                    // 监听式 RTU over TCP：IP 作为绑定地址（127.0.0.1 仅本机，0.0.0.0 暴露到局域网）；
-                    // onError 保证监听意外终止时可见（sticky：不会被下一周期自动清除），提示用户重启网络
-                    EnumProtocolType.ModbusRtuOverTcp => new RtuOverTcpSlaveNetwork(IP, Port,
-                        ex => ReportError($"RTU over TCP 监听已异常终止：{ex.Message}", sticky: true)),
+                    EnumProtocolType.ModbusRtu => Tools.CreateRtuSlaveNetwork(PortName, BaudRate, DataBits, Parity, StopBits, OnListenerError),
+                    EnumProtocolType.ModbusTcp => Tools.CreateTcpSlaveNetwork(IP, Port, OnListenerError),
+                    // 监听式 RTU over TCP：IP 作为绑定地址（127.0.0.1 仅本机，0.0.0.0 暴露到局域网）
+                    EnumProtocolType.ModbusRtuOverTcp => new RtuOverTcpSlaveNetwork(IP, Port, OnListenerError),
                     _ => throw new NotSupportedException($"Protocol type {ProtocolType} is not supported.")
                 };
             }
             catch (Exception ex)
             {
                 nextRetryTime = DateTime.Now.AddSeconds(2);
+                AppLogger.Exception($"网络「{Name}」创建失败", ex);
                 ReportError(ex.Message);
                 return null;
             }
@@ -319,6 +409,7 @@ namespace 通用模拟器
 
         public async Task DoWork(CancellationToken token)
         {
+            AppLogger.Info($"网络「{Name}」开始运行（{ProtocolType} {IP}:{Port}）", nameof(DoWork));
             try
             {
                 while (!token.IsCancellationRequested && !isDsiposed)
@@ -400,6 +491,7 @@ namespace 通用模拟器
                     {
                         // 网络已被释放（删除/导入替换/停止清理）时静默退出，按取消处理
                         if (IsReleased(null)) throw new OperationCanceledException();
+                        AppLogger.Exception($"网络「{Name}」本周期执行异常", ex, nameof(DoWork));
                         ReportError(ex.Message);
                     }
                 }
@@ -407,13 +499,15 @@ namespace 通用模拟器
             catch (OperationCanceledException) { }
             finally
             {
+                AppLogger.Info($"网络「{Name}」已停止运行", nameof(DoWork));
                 // 无论取消、异常还是 isDsiposed 退出，都保证释放资源并恢复可编辑
-                foreach (var item in StationList)
+                // 用快照遍历，避免与 UI 线程的增删同时枚举 BindingList 抛“集合已修改”
+                foreach (var item in StationList.ToArray())
                 {
                     item.CanEdit = true;
                     item.Slave = null;
                     item.Elapsed = 0;
-                    foreach (var ruler in item.RulerList) ruler.ResetRuntime();
+                    foreach (var ruler in item.RulerList.ToArray()) ruler.ResetRuntime();
                 }
                 CanEdit = true;
                 lock (networkLock)
@@ -431,9 +525,9 @@ namespace 通用模拟器
         //静态缓存：下拉选项只读，避免 UI 每次重求值都分配数组
         static readonly int[] intervalValues = { 1, 2, 3, 5, 6, 8, 10, 15, 20, 30, 50, 60, 70, 80, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1500, 2000, 3000, 5000 };
         static readonly EnumEndian[] endialValues = Enum.GetValues<EnumEndian>();
-        public int[] IntervalValues => intervalValues;
+        [JsonIgnore] public int[] IntervalValues => intervalValues;
 
-        public EnumEndian[] EndialValues => endialValues;
+        [JsonIgnore] public EnumEndian[] EndialValues => endialValues;
         /// <summary>公开唯一标识（GUID）：供规则的跨网络输出目标引用</summary>
         [ObservableProperty] Guid id = Guid.NewGuid();
         [ObservableProperty] bool isEnable = true;
@@ -491,7 +585,8 @@ namespace 通用模拟器
         // 站点锁定/解锁时同步到所有规则，使运行期规则详情可选中查看但不可编辑
         partial void OnCanEditChanged(bool value)
         {
-            foreach (var ruler in RulerList) ruler.CanEdit = value;
+            // 后台 DoWork 会写 CanEdit，UI 可能同时增删规则；用快照避免枚举时集合被修改
+            foreach (var ruler in RulerList.ToArray()) ruler.CanEdit = value;
         }
 
         public void Dispose()
@@ -500,7 +595,7 @@ namespace 通用模拟器
         }
 
         [property: JsonIgnore]
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
         void AddRuler()
         {
             RulerModel ruler = new RulerModel { CanEdit = CanEdit };
@@ -526,7 +621,7 @@ namespace 通用模拟器
         }
 
         [property: JsonIgnore]
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
         void RemoverRuler(RulerModel? ruler)
         {
             try
@@ -556,6 +651,35 @@ namespace 通用模拟器
             SelectedRuler = copy;
         }
 
+        /// <summary>复制规则到内存剪贴板：不修改原对象与列表，仅停止状态可用</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanEdit))]
+        void CopyRuler(RulerModel? ruler)
+        {
+            if (ruler is null) return;
+            ModelClipboard.Copy(ruler);
+        }
+
+        bool CanPasteRuler => CanEdit && ModelClipboard.CanPaste<RulerModel>();
+
+        /// <summary>粘贴规则：从快照克隆并插入选中项之后</summary>
+        [property: JsonIgnore]
+        [RelayCommand(CanExecute = nameof(CanPasteRuler))]
+        void PasteRuler(RulerModel? target)
+        {
+            var copy = ModelClipboard.CreatePasteCopy<RulerModel>();
+            if (copy is null) return;
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int index = target is not null ? RulerList.IndexOf(target) : -1;
+            if (index < 0) index = RulerList.Count - 1;
+            RulerList.Insert(index + 1, copy);
+            SelectedRuler = copy;
+        }
+
+        /// <summary>供外部在剪贴板变化时刷新本站点的规则粘贴命令状态</summary>
+        public void NotifyPasteCommandsChanged() => PasteRulerCommand.NotifyCanExecuteChanged();
+
         [property: JsonIgnore]
         [RelayCommand(CanExecute = nameof(CanEdit))]
         void MoveRulerUp() => MoveRuler(-1);
@@ -569,10 +693,13 @@ namespace 通用模拟器
             var item = SelectedRuler;
             if (item is null) return;
             int index = RulerList.IndexOf(item);
+            if (index < 0) return;
             int target = index + offset;
-            if (index < 0 || target < 0 || target >= RulerList.Count) return;
+            if (target < 0 || target >= RulerList.Count) return;
             RulerList.RemoveAt(index);
-            RulerList.Insert(target, item);
+            target = Math.Clamp(target, 0, RulerList.Count);
+            try { RulerList.Insert(target, item); }
+            catch { if (!RulerList.Contains(item)) RulerList.Add(item); }
             SelectedRuler = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
         }
     }
@@ -585,11 +712,14 @@ namespace 通用模拟器
         static readonly EnumRulerType[] rulerTypeValues = Enum.GetValues<EnumRulerType>();
         static readonly EnumPumpOutputTarget[] pumpOutputTargetValues = Enum.GetValues<EnumPumpOutputTarget>();
         static readonly EnumPumpInputSource[] pumpInputSourceValues = Enum.GetValues<EnumPumpInputSource>();
-        public EnumRegisterType[] RegisterTypeValues => registerTypeValues;
-        public EnumDataType[] DataTypeValues => dataTypeValues;
-        public EnumRulerType[] RulerTypeValues => rulerTypeValues;
-        public EnumPumpOutputTarget[] PumpOutputTargetValues => pumpOutputTargetValues;
-        public EnumPumpInputSource[] PumpInputSourceValues => pumpInputSourceValues;
+        [JsonIgnore] public EnumRegisterType[] RegisterTypeValues => registerTypeValues;
+        [JsonIgnore] public EnumDataType[] DataTypeValues => dataTypeValues;
+        [JsonIgnore] public EnumRulerType[] RulerTypeValues => rulerTypeValues;
+        [JsonIgnore] public EnumPumpOutputTarget[] PumpOutputTargetValues => pumpOutputTargetValues;
+        [JsonIgnore] public EnumPumpInputSource[] PumpInputSourceValues => pumpInputSourceValues;
+        /// <summary>伺服流量泵输入来源选项：不含固定值（固定值仅值拷贝支持）</summary>
+        [JsonIgnore] public EnumPumpInputSource[] PumpInputSourceValuesForPump { get; } =
+            new[] { EnumPumpInputSource.ThisStation, EnumPumpInputSource.OtherStation };
 
         [property: JsonIgnore] public BindingList<NetworkTargetOption> NetworkOptions => RuleRuntime.Networks;
         [property: JsonIgnore] public BindingList<StationTargetOption> StationOptions => RuleRuntime.Stations;
@@ -617,6 +747,8 @@ namespace 通用模拟器
         [ObservableProperty] EnumRegisterType inputRegisterType = EnumRegisterType.ReadWrite;
         [ObservableProperty] EnumDataType inputDataType = EnumDataType.UInt16;
         [ObservableProperty] int inputAddress = 0;
+        /// <summary>值拷贝源为"固定值"时填写的字符串，按目标数据类型解析</summary>
+        [ObservableProperty] string fixedValueText = "0";
         /// <summary>值拷贝：源地址数量。1=点对点/一对多；>1=多对多（目标数量不生效）</summary>
         [ObservableProperty] int sourceLength = 1;
         [ObservableProperty] double inputScale = 1.0;//读取缩放
@@ -857,13 +989,24 @@ namespace 通用模拟器
 
             if (RulerType == EnumRulerType.ValueCopy)
             {
-                //值拷贝：源地址/数量校验
-                if (InputAddress < 0 || InputAddress > 65535) return $"值拷贝「{Name}」源地址 {InputAddress} 超出 0~65535";
-                if (InputDataType == EnumDataType.String) return $"值拷贝「{Name}」源数据类型不能为 String";
+                //值拷贝：源校验（固定值源无需地址/从站，仅校验字符串可按目标类型解析）
+                bool sourceIsFixed = PumpInputSource == EnumPumpInputSource.FixedValue;
+                if (sourceIsFixed)
+                {
+                    if (DataType == EnumDataType.String) return $"值拷贝「{Name}」目标数据类型不能为 String";
+                    if (!TryParseFixedValue(FixedValueText, DataType, out _))
+                        return $"值拷贝「{Name}」固定值「{FixedValueText}」无法按目标类型「{DataType}」解析";
+                }
+                else
+                {
+                    if (InputAddress < 0 || InputAddress > 65535) return $"值拷贝「{Name}」源地址 {InputAddress} 超出 0~65535";
+                    if (InputDataType == EnumDataType.String) return $"值拷贝「{Name}」源数据类型不能为 String";
+                    if (PumpInputSource == EnumPumpInputSource.OtherStation && (InputNetworkId == Guid.Empty || InputStationId == Guid.Empty))
+                        return $"值拷贝「{Name}」未选择来源网络或从站";
+                }
                 if (SourceLength < 1 || SourceLength > 2000) return $"值拷贝「{Name}」源数量 {SourceLength} 超出 1~2000";
-                if (InputAddress + SourceLength * WordCount(InputDataType) > 65536) return $"值拷贝「{Name}」源地址范围超出 65535";
-                if (PumpInputSource == EnumPumpInputSource.OtherStation && (InputNetworkId == Guid.Empty || InputStationId == Guid.Empty))
-                    return $"值拷贝「{Name}」未选择来源网络或从站";
+                if (!sourceIsFixed && InputAddress + SourceLength * WordCount(InputDataType) > 65536)
+                    return $"值拷贝「{Name}」源地址范围超出 65535";
 
                 //目标校验："不写输出"时不拷贝，跳过；源数量>1 时目标数量不生效，不校验
                 if (!noWrite)
@@ -1033,7 +1176,7 @@ namespace 通用模拟器
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"伺服流量泵读取输入失败：{ex.Message}");
+                AppLogger.Exception($"伺服流量泵「{Name}」读取输入失败", ex);
                 return 0;
             }
         }
@@ -1093,9 +1236,31 @@ namespace 通用模拟器
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"值拷贝读取失败：{ex.Message}");
+                AppLogger.Exception($"值拷贝「{Name}」读取失败", ex);
             }
             return result;
+        }
+
+        /// <summary>
+        /// 解析值拷贝源的固定值字符串。
+        /// 目标为 Bool：支持 true/false、1/0（不区分大小写、忽略前后空白）；
+        /// 其它类型：先按浮点数解析（支持小数与指数），最终由写入管线转换为目标类型。
+        /// </summary>
+        public static bool TryParseFixedValue(string? text, EnumDataType targetType, out double value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            var s = text.Trim();
+            if (targetType == EnumDataType.Bool)
+            {
+                if (bool.TryParse(s, out var b)) { value = b ? 1 : 0; return true; }
+                if (s == "1") { value = 1; return true; }
+                if (s == "0") { value = 0; return true; }
+                return false;
+            }
+            return double.TryParse(s,
+                NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out value);
         }
 
         /// <summary>通用多值写入：字节序由写入扩展方法按目标从站自身设置处理</summary>
@@ -1160,14 +1325,19 @@ namespace 通用模拟器
         {
             if (PumpOutputTarget == EnumPumpOutputTarget.None) return;
 
+            bool sourceIsFixed = PumpInputSource == EnumPumpInputSource.FixedValue;
             bool sourceIsRemote = PumpInputSource == EnumPumpInputSource.OtherStation;
             bool targetIsRemote = PumpOutputTarget == EnumPumpOutputTarget.OtherStation;
 
-            //1. 解析源从站
-            IModbusSlave? sourceSlave = sourceIsRemote
-                ? RuleRuntime.ResolveSlave?.Invoke(InputNetworkId, InputStationId)
-                : localSlave;
-            if (sourceSlave is null) return;
+            //1. 解析源从站：固定值源不需要从站
+            IModbusSlave? sourceSlave = null;
+            if (!sourceIsFixed)
+            {
+                sourceSlave = sourceIsRemote
+                    ? RuleRuntime.ResolveSlave?.Invoke(InputNetworkId, InputStationId)
+                    : localSlave;
+                if (sourceSlave is null) return;
+            }
 
             //2. 解析目标从站
             IModbusSlave? targetSlave = targetIsRemote
@@ -1177,7 +1347,22 @@ namespace 通用模拟器
 
             //3. 读取源数据并应用源缩放/偏置；字节序跟随来源从站自身设置
             int srcCount = Math.Max(1, SourceLength);
-            double[] source = ReadValues(sourceSlave, InputRegisterType, InputDataType, InputAddress, srcCount);
+            double[] source;
+            if (sourceIsFixed)
+            {
+                //固定值源：按目标数据类型解析字符串，所有源位置写入同一个值
+                if (!TryParseFixedValue(FixedValueText, DataType, out var fixedValue))
+                {
+                    AppLogger.Warning($"值拷贝「{Name}」固定值「{FixedValueText}」无法按目标类型「{DataType}」解析", nameof(WriteValueCopyData));
+                    return;
+                }
+                source = new double[srcCount];
+                for (int i = 0; i < source.Length; i++) source[i] = fixedValue;
+            }
+            else
+            {
+                source = ReadValues(sourceSlave!, InputRegisterType, InputDataType, InputAddress, srcCount);
+            }
             for (int i = 0; i < source.Length; i++) source[i] = source[i] * CopySourceScale + CopySourceOffset;
 
             //4. 按源数量决定写入方式；字节序跟随目标从站自身设置
@@ -1312,7 +1497,7 @@ namespace 通用模拟器
                 case EnumDataType.UInt16:
                     {
                         var data = new ushort[len];
-                        for (int i = 0; i < len; i++) data[i] = (UInt16)(random.NextDouble() * Scale + Offset);
+                        for (int i = 0; i < len; i++) data[i] = (UInt16)Math.Max(0, random.NextDouble() * Scale + Offset);
                         if (readOnly) slave.WriteUInt16R(addr, data); else slave.WriteUInt16RW(addr, data);
                         return;
                     }
@@ -1326,7 +1511,7 @@ namespace 通用模拟器
                 case EnumDataType.UInt32:
                     {
                         var data = new uint[len];
-                        for (int i = 0; i < len; i++) data[i] = (UInt32)(random.NextDouble() * Scale + Offset);
+                        for (int i = 0; i < len; i++) data[i] = (UInt32)Math.Max(0, random.NextDouble() * Scale + Offset);
                         if (readOnly) slave.WriteUInt32R(addr, data); else slave.WriteUInt32RW(addr, data);
                         return;
                     }

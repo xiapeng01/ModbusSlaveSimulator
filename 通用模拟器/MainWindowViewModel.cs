@@ -66,20 +66,24 @@ namespace 通用模拟器
                 var list = file.NetworkList;
                 if (list is null) throw new Exception("文件内容不是有效的参数配置");
 
-                // 销毁旧对象（释放网络/串口资源），再整体替换
-                foreach (var item in NetworkList) item.Dispose();
+                // 先对新配置补齐 ID 并完成校验：任何异常都发生在替换前，不影响当前正在使用的配置
+                EnsureIds(list);
+
+                // 校验通过后再整体替换；旧对象最后释放，避免中途失败留下半套配置
+                var oldItems = NetworkList.ToArray();
                 NetworkList.Clear();
                 foreach (var item in list) NetworkList.Add(item);
-                EnsureIds();
                 RefreshStationTargets();
                 if (!string.IsNullOrWhiteSpace(file.Name)) ConfigName = file.Name;
-
                 SelectedNetwork = NetworkList.FirstOrDefault();
+                foreach (var item in oldItems) item.Dispose();
+
                 MessageBox.Show($"导入成功，共 {NetworkList.Count} 个网络。", "导入参数",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
+                AppLogger.Exception("导入参数失败", ex);
                 MessageBox.Show($"导入失败：{ex.Message}", "导入参数", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -143,6 +147,30 @@ namespace 通用模拟器
             SelectedNetwork = copy;
         }
 
+        /// <summary>复制网络到内存剪贴板：不修改原对象与列表，仅停止状态可用</summary>
+        [RelayCommand(CanExecute = nameof(IsStopped))]
+        void CopyNetwork(NetworkConfigModel? model)
+        {
+            if (model is null) return;
+            ModelClipboard.Copy(model);
+        }
+
+        bool CanPasteNetwork => IsStopped && ModelClipboard.CanPaste<NetworkConfigModel>();
+
+        /// <summary>粘贴网络：从剪贴板快照克隆新对象插入选中项之后；类型不匹配时菜单项已禁用</summary>
+        [RelayCommand(CanExecute = nameof(CanPasteNetwork))]
+        void PasteNetwork(NetworkConfigModel? target)
+        {
+            var copy = ModelClipboard.CreatePasteCopy<NetworkConfigModel>();
+            if (copy is null) return;
+            copy.Name = ModelCloner.WithCopySuffix(copy.Name);
+
+            int index = target is not null ? NetworkList.IndexOf(target) : -1;
+            if (index < 0) index = NetworkList.Count - 1;
+            NetworkList.Insert(index + 1, copy);
+            SelectedNetwork = copy;
+        }
+
         [RelayCommand(CanExecute = nameof(IsStopped))]
         void MoveNetworkUp() => MoveNetwork(-1);
 
@@ -154,10 +182,14 @@ namespace 通用模拟器
             var item = SelectedNetwork;
             if (item is null) return;
             int index = NetworkList.IndexOf(item);
+            if (index < 0) return;
             int target = index + offset;
-            if (index < 0 || target < 0 || target >= NetworkList.Count) return;
+            if (target < 0 || target >= NetworkList.Count) return;
             NetworkList.RemoveAt(index);
-            NetworkList.Insert(target, item);
+            // RemoveAt 会同步触发 ListChanged；重入可能改变集合长度，插入前重新钳制并在失败时回滚
+            target = Math.Clamp(target, 0, NetworkList.Count);
+            try { NetworkList.Insert(target, item); }
+            catch { if (!NetworkList.Contains(item)) NetworkList.Add(item); }
             SelectedNetwork = item;  // RemoveAt 会使 ListView 清空选中，这里恢复
         }
 
@@ -168,7 +200,7 @@ namespace 通用模拟器
         readonly DispatcherTimer clockTimer;
         /// <summary>Tick 显示刷新：后台高频计数不通知，改由低频 UI 定时器批量刷新，避免跨线程通知风暴</summary>
         readonly DispatcherTimer tickRefreshTimer;
-        static readonly TimeSpan TickRefreshInterval = TimeSpan.FromMilliseconds(100);
+        static readonly TimeSpan TickRefreshInterval = TimeSpan.FromMilliseconds(200);
 
         public void Dispose()
         {
@@ -198,54 +230,68 @@ namespace 通用模拟器
                 RefreshStationTargets();
             };
             NetworkConfigModel.StationsChanged += (_, __) => RefreshStationTargets();
+            // 剪贴板内容变化后刷新各级粘贴命令的可用状态
+            ModelClipboard.Changed += (_, __) =>
+            {
+                PasteNetworkCommand.NotifyCanExecuteChanged();
+                foreach (var n in NetworkList.ToArray())
+                {
+                    n.NotifyPasteCommandsChanged();
+                    foreach (var s in n.StationList.ToArray()) s.NotifyPasteCommandsChanged();
+                }
+            };
 
             // 状态栏时钟：每秒刷新（DispatcherTimer 在 UI 线程触发，可直接改绑定源）
             clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             clockTimer.Tick += (_, __) => CurrentTimeText = DateTime.Now.ToString(TimeFormat);
             clockTimer.Start();
 
-            // Tick 显示低频批量刷新：把原本每周期数万次跨线程 PropertyChanged 降为每 500ms 一次
+            // Tick 显示低频批量刷新：仅在运行时启用，停止时数据不变无需刷新
             tickRefreshTimer = new DispatcherTimer { Interval = TickRefreshInterval };
             tickRefreshTimer.Tick += (_, __) => RefreshTickDisplay();
-            tickRefreshTimer.Start();
         }
 
         /// <summary>按公开 GUID 查找站点对象；不依赖运行期才创建的 Slave，故可用于启动前校验</summary>
         StationInformationModel? FindStationByGuid(Guid networkId, Guid stationId)
         {
-            for (int i = 0; i < NetworkList.Count; i++)
+            // 本方法由后台 DoWork 经 ResolveSlave 调用，UI 可能同时增删网络/站点；
+            // 用快照遍历，避免索引与 Count 之间集合缩短导致越界
+            foreach (var network in NetworkList.ToArray())
             {
-                var network = NetworkList[i];
                 if (network.Id != networkId) continue;
-                for (int j = 0; j < network.StationList.Count; j++)
-                {
-                    var station = network.StationList[j];
+                foreach (var station in network.StationList.ToArray())
                     if (station.Id == stationId) return station;
-                }
                 return null;
             }
             return null;
         }
 
-        /// <summary>在 UI 线程批量通知各层 Tick 刷新显示（仅运行时有意义，停止时数据不变也无害）</summary>
+        /// <summary>
+        /// 在 UI 线程刷新 Tick 显示：按三层列表的实际可见范围通知——
+        /// 左侧网络列表的全部网络、选中网络的全部站点、选中站点的全部规则；
+        /// 未展开显示的其它网络站点/其它站点规则跳过，避免全量遍历造成通知风暴。
+        /// </summary>
         void RefreshTickDisplay()
         {
-            foreach (var network in NetworkList)
-            {
-                network.NotifyTickChanged();
-                foreach (var station in network.StationList)
-                {
-                    station.NotifyTickChanged();
-                    foreach (var ruler in station.RulerList)
-                        ruler.NotifyTickChanged();
-                }
-            }
+            // 左侧网络列表：所有网络项都可见
+            foreach (var n in NetworkList.ToArray()) n.NotifyTickChanged();
+
+            // 站点列表：只显示选中网络的站点
+            var network = SelectedNetwork;
+            if (network is null) return;
+            foreach (var s in network.StationList.ToArray()) s.NotifyTickChanged();
+
+            // 规则列表：只显示选中站点的规则
+            var station = network.SelectedStation;
+            if (station is null) return;
+            foreach (var r in station.RulerList.ToArray()) r.NotifyTickChanged();
         }
 
         [RelayCommand]
         void Start()
         {
             if (cts is not null) return;
+            AppLogger.Info($"启动所有网络（共 {NetworkList.Count} 个）", nameof(Start));
 
             // 启动前校验配置，避免运行期才发现端口/站号冲突
             var error = ValidateConfiguration();
@@ -260,12 +306,15 @@ namespace 通用模拟器
             tasks.Clear();
             foreach (var item in NetworkList)
             {
+                // 重置上一轮停止时留下的释放标记，否则重启后网络会被误判为已释放而无法创建
+                item.PrepareForStart();
                 // 启动即锁定配置（DoWork 里也会再置一次，这里是为了让 UI 立刻变灰）
                 item.CanEdit = false;
                 foreach (var station in item.StationList.ToArray()) station.CanEdit = false;
 
                 tasks.Add(Task.Run(() => item?.DoWork(token)));
             }
+            tickRefreshTimer.Start();
             OnPropertyChanged(nameof(IsRunning));
             NotifyStoppedCommands();
         }
@@ -339,10 +388,11 @@ namespace 通用模拟器
             return null;
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         async Task Stop()
         {
             if (cts is null) return;
+            AppLogger.Info("停止所有网络", nameof(Stop));
             var source = cts;
             source.Cancel();
             // 等待所有网络退出并释放资源后才置空：期间 IsRunning 仍为 true，
@@ -351,6 +401,7 @@ namespace 通用模拟器
             cts = null;
             source.Dispose();
             tasks.Clear();
+            tickRefreshTimer.Stop();
             OnPropertyChanged(nameof(IsRunning));
             NotifyStoppedCommands();
         } 
@@ -374,7 +425,7 @@ namespace 通用模拟器
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"保存配置失败：{ex.Message}");
+                AppLogger.Exception("保存配置失败", ex);
             }
         }
 
@@ -405,14 +456,18 @@ namespace 通用模拟器
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "错误");
+                // 启动加载失败不能阻断程序：只记录日志，继续使用默认/当前配置
+                AppLogger.Exception("加载本地配置失败", ex);
             }
         }
 
         /// <summary>旧配置补齐稳定 ID，保证规则跨网络引用可用</summary>
-        void EnsureIds()
+        void EnsureIds() => EnsureIds(NetworkList);
+
+        /// <summary>对指定网络列表补齐稳定 ID（导入时先处理新列表，避免污染当前配置）</summary>
+        void EnsureIds(IEnumerable<NetworkConfigModel> list)
         {
-            foreach (var network in NetworkList)
+            foreach (var network in list)
             {
                 if (network.Id == Guid.Empty) network.Id = Guid.NewGuid();
                 foreach (var station in network.StationList)
@@ -422,62 +477,81 @@ namespace 通用模拟器
             }
         }
 
+        bool refreshingStationTargets;
+
         /// <summary>刷新所有站点下拉选项（供伺服流量泵选择输出目标）</summary>
         public void RefreshStationTargets()
         {
-            var networks = RuleRuntime.Networks;
-            var stations = RuleRuntime.Stations;
-
-            // 原地更新选项对象，保持引用稳定，避免 SelectedItem 因对象重建而丢失
-            var networkIds = new HashSet<Guid>();
-            foreach (var network in NetworkList)
+            // ListChanged/StationsChanged 会在增删项时同步触发；重入时直接返回，
+            // 避免在同一通知链里反复 Add/RemoveAt 导致索引失效与绑定集合枚举异常
+            if (refreshingStationTargets) return;
+            refreshingStationTargets = true;
+            try
             {
-                networkIds.Add(network.Id);
-                var opt = networks.FirstOrDefault(o => o.Id == network.Id);
-                if (opt is null) networks.Add(new NetworkTargetOption { Id = network.Id, Name = network.Name });
-                else opt.Name = network.Name;
-            }
-            for (int i = networks.Count - 1; i >= 0; i--)
-                if (!networkIds.Contains(networks[i].Id)) networks.RemoveAt(i);
+                var networks = RuleRuntime.Networks;
+                var stations = RuleRuntime.Stations;
+                var networkList = NetworkList.ToArray();
 
-            var stationIds = new HashSet<Guid>();
-            foreach (var network in NetworkList)
-            {
-                foreach (var station in network.StationList)
+                // 原地更新选项对象，保持引用稳定，避免 SelectedItem 因对象重建而丢失
+                var networkIds = new HashSet<Guid>();
+                foreach (var network in networkList)
                 {
-                    stationIds.Add(station.Id);
-                    var opt = stations.FirstOrDefault(o => o.StationId == station.Id);
-                    var display = $"{station.StationNo} ({station.Name})";
-                    if (opt is null)
+                    networkIds.Add(network.Id);
+                    var opt = networks.FirstOrDefault(o => o.Id == network.Id);
+                    if (opt is null) networks.Add(new NetworkTargetOption { Id = network.Id, Name = network.Name });
+                    else opt.Name = network.Name;
+                }
+                for (int i = networks.Count - 1; i >= 0; i--)
+                {
+                    if (i >= networks.Count) continue;
+                    if (!networkIds.Contains(networks[i].Id)) networks.RemoveAt(i);
+                }
+
+                var stationIds = new HashSet<Guid>();
+                foreach (var network in networkList)
+                {
+                    foreach (var station in network.StationList.ToArray())
                     {
-                        stations.Add(new StationTargetOption
+                        stationIds.Add(station.Id);
+                        var opt = stations.FirstOrDefault(o => o.StationId == station.Id);
+                        var display = $"{station.StationNo} ({station.Name})";
+                        if (opt is null)
                         {
-                            NetworkId = network.Id, StationId = station.Id,
-                            NetworkName = network.Name, StationNo = station.StationNo,
-                            StationName = station.Name, DisplayName = display
-                        });
-                    }
-                    else
-                    {
-                        opt.NetworkId = network.Id;
-                        opt.NetworkName = network.Name;
-                        opt.StationNo = station.StationNo;
-                        opt.StationName = station.Name;
-                        opt.DisplayName = display;
+                            stations.Add(new StationTargetOption
+                            {
+                                NetworkId = network.Id, StationId = station.Id,
+                                NetworkName = network.Name, StationNo = station.StationNo,
+                                StationName = station.Name, DisplayName = display
+                            });
+                        }
+                        else
+                        {
+                            opt.NetworkId = network.Id;
+                            opt.NetworkName = network.Name;
+                            opt.StationNo = station.StationNo;
+                            opt.StationName = station.Name;
+                            opt.DisplayName = display;
+                        }
                     }
                 }
+                for (int i = stations.Count - 1; i >= 0; i--)
+                {
+                    if (i >= stations.Count) continue;
+                    if (!stationIds.Contains(stations[i].StationId)) stations.RemoveAt(i);
+                }
+
+                // 保持集合实例稳定：RuleRuntime 的集合已被原地更新，只有首次（实例不同）才赋值，
+                // 避免每次编辑站点名/站号都整体替换 BindingList 引发三层 ComboBox 级联重绑定
+                if (!ReferenceEquals(NetworkTargets, networks)) NetworkTargets = networks;
+                if (!ReferenceEquals(StationTargets, stations)) StationTargets = stations;
+
+                // 配置加载/列表变化后，按 Guid 重新关联下拉选择
+                foreach (var network in networkList)
+                    foreach (var station in network.StationList.ToArray())
+                        foreach (var ruler in station.RulerList.ToArray())
+                            ruler.SyncTargetOptions();
             }
-            for (int i = stations.Count - 1; i >= 0; i--)
-                if (!stationIds.Contains(stations[i].StationId)) stations.RemoveAt(i);
-
-            NetworkTargets = new BindingList<NetworkTargetOption>(networks);
-            StationTargets = new BindingList<StationTargetOption>(stations);
-
-            // 配置加载/列表变化后，按 Guid 重新关联下拉选择
-            foreach (var network in NetworkList)
-                foreach (var station in network.StationList)
-                    foreach (var ruler in station.RulerList)
-                        ruler.SyncTargetOptions();
+            finally { refreshingStationTargets = false; }
         }
 
     }

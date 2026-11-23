@@ -18,6 +18,8 @@ namespace 通用模拟器
             InitializeComponent();
         }
 
+        void ClearLog_Click(object sender, RoutedEventArgs e) => AppLogger.Clear();
+
         #region 最大化不遮挡任务栏（限制到显示器工作区）
 
         private const int WM_GETMINMAXINFO = 0x0024;
@@ -143,12 +145,13 @@ namespace 通用模拟器
 
         }
 
-        // 串口下拉展开时重新枚举，支持运行期热插拔
+        // 串口下拉展开时重新枚举，支持运行期热插拔。
+        // 延迟到 Dispatcher 空闲时执行，避免下拉展开事件里 WPF 正在枚举 ItemsSource 时集合被修改
         private void PortName_DropDownOpened(object sender, EventArgs e)
         {
             if (sender is System.Windows.Controls.ComboBox { DataContext: NetworkConfigModel network })
             {
-                network.RefreshPortNames();
+                Dispatcher.BeginInvoke(new Action(network.RefreshPortNames));
             }
         }
 
